@@ -1,3 +1,7 @@
+-- ===============================
+-- Development Schema Setup Script
+-- ===============================
+
 -- Create enum for user roles (only if not exists)
 DO $$ BEGIN
     CREATE TYPE public.user_role AS ENUM ('BE', 'BM', 'Marketing', 'Admin');
@@ -48,3 +52,10 @@ WHERE NOT EXISTS (SELECT 1 FROM public.doctors WHERE imacx_code = 'DOC004');
 INSERT INTO public.doctors (imacx_code, name, specialty, clinic_name, clinic_address, city, phone, whatsapp_number, is_selected_by_marketing) 
 SELECT 'DOC005', 'Dr. Vikram Singh', 'Orthopedics', 'Bone & Joint Center', '654 Civil Lines, Delhi', 'Delhi', '9876543214', '9876543214', true
 WHERE NOT EXISTS (SELECT 1 FROM public.doctors WHERE imacx_code = 'DOC005');
+
+-- ===============================
+-- Disable Row Level Security (DEV MODE)
+-- ===============================
+ALTER TABLE public.users DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.camps DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.patients DISABLE ROW LEVEL SECURITY;

@@ -65,6 +65,24 @@ const CreateCamp = () => {
     }
   };
 
+  const sendDoctorConsentMessage = (doctorPhone: string) => {
+  const message = `
+Thank you very much for giving your consent for conducting Vitamin D Deficiency Risk Assessment camp at your clinic.
+
+In case of any concerns/ complaints, you can reach out on 9000000000.
+
+We thank you for your continuous patronage.
+  `;
+
+  // WhatsApp requires international format (example: +91XXXXXXXXXX)
+  const phone = doctorPhone.startsWith("+") ? doctorPhone : `+91${doctorPhone}`;
+  const url = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+  window.open(url, "_blank"); // Opens WhatsApp Web / App
+};
+
+
+
+
   const handleCreateCamp = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedDoctorId || !campDate) {
@@ -101,6 +119,9 @@ const CreateCamp = () => {
         description: "You can now start registering patients.",
       });
 
+      // 👇 Auto WhatsApp message to doctor
+      sendDoctorConsentMessage(doctorPhone);
+      
       navigate(`/camp/${camp.id}`);
     } catch (error: any) {
       toast({

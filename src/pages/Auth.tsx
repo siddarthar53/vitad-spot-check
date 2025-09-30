@@ -28,51 +28,67 @@ const Auth = () => {
   }, [navigate]);
 
   const handleAuth = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
+  e.preventDefault();
+  setIsLoading(true);
 
-    try {
-      if (isSignUp) {
-        const { error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            emailRedirectTo: `${window.location.origin}/`,
-            data: {
-              name,
-            },
-          },
-        });
-
-        if (error) throw error;
-
-        toast({
-          title: "Account created successfully",
-          description: "Please check your email to verify your account.",
-        });
-      } else {
-        const { error } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
-
-        if (error) throw error;
-
-        toast({
-          title: "Welcome back!",
-          description: "You have been signed in successfully.",
-        });
-      }
-    } catch (error: any) {
-      toast({
-        title: "Authentication failed",
-        description: error.message,
-        variant: "destructive",
+  try {
+    if (isSignUp) {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/`,
+          data: { name },
+        },
       });
-    } finally {
-      setIsLoading(false);
+
+      if (error) throw error;
+
+      // 👇 Insert into your custom users table *after signup*
+      if (data?.user) {
+        const { error: insertError } = await supabase.from("users").insert([
+          {
+            id: data.user.id,   // match auth.users UUID
+            email,
+            role: "BE",         // default role
+            name,               // store full name
+          },
+        ]);
+
+        if (insertError) {
+          console.error("Error inserting into users table:", insertError);
+          throw insertError;
+        }
+      }
+
+      toast({
+        title: "Account created successfully",
+        description: "Please check your email to verify your account.",
+      });
+    } else {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Welcome back!",
+        description: "You have been signed in successfully.",
+      });
     }
-  };
+  } catch (error: any) {
+    toast({
+      title: "Authentication failed",
+      description: error.message,
+      variant: "destructive",
+    });
+  } finally {
+    setIsLoading(false);
+  }
+};
+
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-secondary to-background flex items-center justify-center p-4">

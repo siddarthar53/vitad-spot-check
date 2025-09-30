@@ -40,18 +40,32 @@ const PatientManagement = () => {
   const [showAddForm, setShowAddForm] = useState(false);
   const [loading, setLoading] = useState(true);
   const [formData, setFormData] = useState({
-    initials: "",
-    age: "",
-    gender: "",
-    height_feet: "",
-    height_inches: "",
-    weight_kg: "",
-    diabetes: false,
-    hypertension: false,
-    hypothyroidism: false,
-    hyperthyroidism: false,
-    other_comorbidity: "",
-  });
+  initials: "",
+  age: "",
+  gender: "",
+  height_feet: "",
+  height_inches: "",
+  weight_kg: "",
+  diabetes: false,
+  hypertension: false,
+  hypothyroidism: false,
+  hyperthyroidism: false,
+  other_comorbidity: "",
+  // Section B answers
+  q1: "",
+  q2: "",
+  q3: "",
+  q4: "",
+  q5: "",
+  q6: "",
+  q7: "",
+  q8: "",
+  q9: "",
+  q10: "",
+  q11: "",
+  q12: "",
+});
+
 
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -94,6 +108,7 @@ const PatientManagement = () => {
     return score;
   };
 
+
   const getRiskLevel = (totalScore: number): string => {
     if (totalScore <= 3) return "Low Risk";
     if (totalScore <= 6) return "Moderate Risk";
@@ -124,9 +139,9 @@ const PatientManagement = () => {
       const bmi = calculateBMI(weightKg, heightMeters);
       const age = parseInt(formData.age);
       const sectionAScore = calculateSectionAScore(age, bmi);
-      
-      // For now, we'll set section B score to 0 as we haven't implemented the questionnaire yet
-      const sectionBScore = 0;
+
+      // Calculate Section B score using the new function
+      const sectionBScore = calculateSectionBScore(formData);
       const totalScore = sectionAScore + sectionBScore;
       const riskLevel = getRiskLevel(totalScore);
 
@@ -182,6 +197,18 @@ const PatientManagement = () => {
         hypothyroidism: false,
         hyperthyroidism: false,
         other_comorbidity: "",
+        q1: "",
+        q2: "",
+        q3: "",
+        q4: "",
+        q5: "",
+        q6: "",
+        q7: "",
+        q8: "",
+        q9: "",
+        q10: "",
+        q11: "",
+        q12: "",
       });
       setShowAddForm(false);
       fetchPatients();
@@ -206,6 +233,65 @@ const PatientManagement = () => {
         return "outline";
     }
   };
+
+  const calculateSectionBScore = (form: typeof formData): number => {
+  let score = 0;
+
+  // Q1
+  if (form.q1 === "option2") score += 2;
+  if (form.q1 === "option3") score += 3;
+
+  // Q2
+  if (form.q2 === "option2") score += 1;
+  if (form.q2 === "option3") score += 3;
+
+  // Q3–Q7
+  if (form.q3 === "yes") score += 1;
+  if (form.q4 === "yes") score += 1;
+  if (form.q5 === "yes") score += 1;
+  if (form.q6 === "yes") score += 1;
+  if (form.q7 === "yes") score += 1;
+
+  // Q8
+  if (form.q8 === "option2") score += 0.25;
+  if (form.q8 === "option3") score += 0.75;
+  if (form.q8 === "option4") score += 1;
+
+  // Q9–Q12
+  if (form.q9 === "yes") score += 1;
+  if (form.q10 === "yes") score += 1;
+  if (form.q11 === "yes") score += 1;
+  if (form.q12 === "yes") score += 1;
+
+  return score;
+};
+
+const printWithRawBT = (patient: Patient) => {
+  const printable = `
+--------------------------
+ Vitamin D Risk Assessment
+--------------------------
+Patient: ${patient.initials}
+Age: ${patient.age}   Gender: ${patient.gender}
+Height: ${patient.height_feet}'${patient.height_inches}" 
+Weight: ${patient.weight_kg}kg
+BMI: ${patient.bmi?.toFixed(1)}
+
+Section A Score: ${patient.section_a_score}
+Section B Score: ${patient.section_b_score}
+Total Score: ${patient.total_score}
+
+Risk Level: ${patient.risk_level}
+--------------------------
+This is a screening result.
+Consult your doctor for testing.
+`;
+
+  // RawBT integration
+  window.location.href = "rawbt:" + encodeURIComponent(printable);
+};
+
+
 
   if (loading) {
     return (
@@ -398,6 +484,107 @@ const PatientManagement = () => {
                   </div>
                 </div>
 
+                                {/* ====================== Section B ====================== */}
+                <div className="mt-8">
+                  <h2 className="text-lg font-semibold mb-4">Section B: Questionnaire</h2>
+
+                  {/* Q1 */}
+                  <div className="space-y-2">
+                    <Label>1. Time Outdoors</Label>
+                    <Select
+                      value={formData.q1}
+                      onValueChange={(v) => setFormData({ ...formData, q1: v })}
+                    >
+                      <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="option1">More than 30 minutes</SelectItem>
+                        <SelectItem value="option2">Less than 30 minutes</SelectItem>
+                        <SelectItem value="option3">Negligible</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Q2 */}
+                  <div className="space-y-2 mt-4">
+                    <Label>2. Clothing Style</Label>
+                    <Select
+                      value={formData.q2}
+                      onValueChange={(v) => setFormData({ ...formData, q2: v })}
+                    >
+                      <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="option1">Shorts / T-shirts / Skirts</SelectItem>
+                        <SelectItem value="option2">Partial coverage (saree, half-sleeve shirt, etc.)</SelectItem>
+                        <SelectItem value="option3">Full coverage (burqa, full sleeves, etc.)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Q3–Q7 Yes/No */}
+                  {[
+                    { key: "q3", text: "3. Use of Sunscreen (SPF >15 before going out)?" },
+                    { key: "q4", text: "4. Do you live in a highly polluted / foggy area?" },
+                    { key: "q5", text: "5. Do you follow a strict vegetarian / vegan diet?" },
+                    { key: "q6", text: "6. Do you consume < 2 servings of fortified milk/foods per day?" },
+                    { key: "q7", text: "7. Do you consume egg yolks or fatty fish < once a week?" },
+                  ].map(({ key, text }) => (
+                    <div key={key} className="space-y-2 mt-4">
+                      <Label>{text}</Label>
+                      <Select
+                        value={formData[key as keyof typeof formData]}
+                        onValueChange={(v) => setFormData({ ...formData, [key]: v })}
+                      >
+                        <SelectTrigger><SelectValue placeholder="Yes/No" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="yes">Yes</SelectItem>
+                          <SelectItem value="no">No</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  ))}
+
+                  {/* Q8 */}
+                  <div className="space-y-2 mt-4">
+                    <Label>8. Skin Pigmentation</Label>
+                    <Select
+                      value={formData.q8}
+                      onValueChange={(v) => setFormData({ ...formData, q8: v })}
+                    >
+                      <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="option1">Very Fair</SelectItem>
+                        <SelectItem value="option2">Light</SelectItem>
+                        <SelectItem value="option3">Medium</SelectItem>
+                        <SelectItem value="option4">Dark</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Q9–Q12 Yes/No */}
+                  {[
+                    { key: "q9", text: "9. Do you have malabsorption conditions (Celiac, Crohn’s, etc.)?" },
+                    { key: "q10", text: "10. Are you on long-term medication affecting Vitamin D metabolism?" },
+                    { key: "q11", text: "11. Have you been diagnosed with osteoporosis or fractures?" },
+                    { key: "q12", text: "12. Do you frequently experience musculoskeletal pain / weakness?" },
+                  ].map(({ key, text }) => (
+                    <div key={key} className="space-y-2 mt-4">
+                      <Label>{text}</Label>
+                      <Select
+                        value={formData[key as keyof typeof formData]}
+                        onValueChange={(v) => setFormData({ ...formData, [key]: v })}
+                      >
+                        <SelectTrigger><SelectValue placeholder="Yes/No" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="yes">Yes</SelectItem>
+                          <SelectItem value="no">No</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  ))}
+                </div>
+
+
+
                 <div className="flex justify-end space-x-4">
                   <Button
                     type="button"
@@ -482,17 +669,12 @@ const PatientManagement = () => {
                       variant="outline" 
                       size="sm" 
                       className="w-full"
-                      onClick={() => {
-                        // TODO: Navigate to patient report generation
-                        toast({
-                          title: "Coming soon",
-                          description: "Report generation will be available soon.",
-                        });
-                      }}
+                      onClick={() => printWithRawBT(patient)}
                     >
                       <FileText className="h-3 w-3 mr-1" />
                       Generate Report
                     </Button>
+
                   </div>
                 </CardContent>
               </Card>

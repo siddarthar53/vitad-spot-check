@@ -11,6 +11,13 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { ArrowLeft, Plus, Users, Calculator, FileText } from "lucide-react";
 import { fetchCampPatients, generateSummaryMessage } from "@/utils/campUtils";
+import {
+  Accordion,
+  AccordionItem,
+  AccordionTrigger,
+  AccordionContent,
+} from "@/components/ui/accordion";
+
 
 
 interface Patient {
@@ -500,228 +507,227 @@ Consult your doctor for testing.
             </CardHeader>
             <CardContent>
               <form onSubmit={handleAddPatient} className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="space-y-2">
-                    <Label>Patient Initials *</Label>
-                    <Input
-                      placeholder="J.D."
-                      value={formData.initials}
-                      onChange={(e) => setFormData({ ...formData, initials: e.target.value })}
-                      required
-                    />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label>Age *</Label>
-                    <Input
-                      type="number"
-                      min="1"
-                      max="120"
-                      value={formData.age}
-                      onChange={(e) => setFormData({ ...formData, age: e.target.value })}
-                      required
-                    />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label>Gender *</Label>
-                    <Select
-                      value={formData.gender}
-                      onValueChange={(value) => setFormData({ ...formData, gender: value })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select gender" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Male">Male</SelectItem>
-                        <SelectItem value="Female">Female</SelectItem>
-                        <SelectItem value="Other">Other</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="space-y-2">
-                    <Label>Height (Feet)</Label>
-                    <Input
-                      type="number"
-                      min="3"
-                      max="8"
-                      placeholder=""
-                      value={formData.height_feet}
-                      onChange={(e) => setFormData({ ...formData, height_feet: e.target.value })}
-                    />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label>Height (Inches)</Label>
-                    <Input
-                      type="number"
-                      min="0"
-                      max="11"
-                      placeholder=""
-                      value={formData.height_inches}
-                      onChange={(e) => setFormData({ ...formData, height_inches: e.target.value })}
-                    />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label>Weight (kg) *</Label>
-                    <Input
-                      type="number"
-                      min="20"
-                      max="300"
-                      step="0.1"
-                      value={formData.weight_kg}
-                      onChange={(e) => setFormData({ ...formData, weight_kg: e.target.value })}
-                      required
-                    />
-                  </div>
-                </div>
+  <Accordion type="single" collapsible defaultValue="sectionA">
+    {/* Section A */}
+    <AccordionItem value="sectionA">
+      <AccordionTrigger>Section A: Basic Information</AccordionTrigger>
+      <AccordionContent>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+          <div className="space-y-2">
+            <Label>Patient Initials *</Label>
+            <Input
+              placeholder="J.D."
+              value={formData.initials}
+              onChange={(e) =>
+                setFormData({ ...formData, initials: e.target.value })
+              }
+              required
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Age *</Label>
+            <Input
+              type="number"
+              min="1"
+              max="120"
+              value={formData.age}
+              onChange={(e) =>
+                setFormData({ ...formData, age: e.target.value })
+              }
+              required
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Gender *</Label>
+            <Select
+              value={formData.gender}
+              onValueChange={(value) =>
+                setFormData({ ...formData, gender: value })
+              }
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select gender" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Male">Male</SelectItem>
+                <SelectItem value="Female">Female</SelectItem>
+                <SelectItem value="Other">Other</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
 
-                <div>
-                  <Label className="text-base font-semibold">Co-morbidities</Label>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-2">
-                    <div className="flex items-center space-x-2">
-                      <Checkbox
-                        id="diabetes"
-                        checked={formData.diabetes}
-                        onCheckedChange={(checked) => 
-                          setFormData({ ...formData, diabetes: checked as boolean })
-                        }
-                      />
-                      <Label htmlFor="diabetes">Diabetes</Label>
-                    </div>
-                    
-                    <div className="flex items-center space-x-2">
-                      <Checkbox
-                        id="hypertension"
-                        checked={formData.hypertension}
-                        onCheckedChange={(checked) => 
-                          setFormData({ ...formData, hypertension: checked as boolean })
-                        }
-                      />
-                      <Label htmlFor="hypertension">Hypertension</Label>
-                    </div>
-                    
-                    <div className="flex items-center space-x-2">
-                      <Checkbox
-                        id="hypothyroidism"
-                        checked={formData.hypothyroidism}
-                        onCheckedChange={(checked) => 
-                          setFormData({ ...formData, hypothyroidism: checked as boolean })
-                        }
-                      />
-                      <Label htmlFor="hypothyroidism">Hypothyroidism</Label>
-                    </div>
-                    
-                    <div className="flex items-center space-x-2">
-                      <Checkbox
-                        id="hyperthyroidism"
-                        checked={formData.hyperthyroidism}
-                        onCheckedChange={(checked) => 
-                          setFormData({ ...formData, hyperthyroidism: checked as boolean })
-                        }
-                      />
-                      <Label htmlFor="hyperthyroidism">Hyperthyroidism</Label>
-                    </div>
-                  </div>
-                  
-                  <div className="mt-4 space-y-2">
-                    <Label>Other Comorbidity</Label>
-                    <Input
-                      placeholder="Specify any other condition"
-                      value={formData.other_comorbidity}
-                      onChange={(e) => setFormData({ ...formData, other_comorbidity: e.target.value })}
-                    />
-                  </div>
-                </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+          <div className="space-y-2">
+            <Label>Height (Feet)</Label>
+            <Input
+              type="number"
+              min="3"
+              max="8"
+              value={formData.height_feet}
+              onChange={(e) =>
+                setFormData({ ...formData, height_feet: e.target.value })
+              }
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Height (Inches)</Label>
+            <Input
+              type="number"
+              min="0"
+              max="11"
+              value={formData.height_inches}
+              onChange={(e) =>
+                setFormData({ ...formData, height_inches: e.target.value })
+              }
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Weight (kg) *</Label>
+            <Input
+              type="number"
+              min="20"
+              max="300"
+              step="0.1"
+              value={formData.weight_kg}
+              onChange={(e) =>
+                setFormData({ ...formData, weight_kg: e.target.value })
+              }
+              required
+            />
+          </div>
+        </div>
 
-                                {/* ====================== Section B ====================== */}
-                <div className="mt-8">
-                  <h2 className="text-lg font-semibold mb-4">Section B: Questionnaire</h2>
+        {/* Co-morbidities */}
+        <div className="mt-4">
+          <Label className="text-base font-semibold">Co-morbidities</Label>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-2">
+            {[
+              "diabetes",
+              "hypertension",
+              "hypothyroidism",
+              "hyperthyroidism",
+            ].map((disease) => (
+              <div key={disease} className="flex items-center space-x-2">
+                <Checkbox
+                  id={disease}
+                  checked={formData[disease as keyof typeof formData] as boolean}
+                  onCheckedChange={(checked) =>
+                    setFormData({
+                      ...formData,
+                      [disease]: checked as boolean,
+                    })
+                  }
+                />
+                <Label htmlFor={disease}>
+                  {disease.charAt(0).toUpperCase() + disease.slice(1)}
+                </Label>
+              </div>
+            ))}
+          </div>
 
-                  {/* Q1 */}
-                  <div className="space-y-2">
-                    <Label>1. Time Outdoors</Label>
-                    <Select
-                      value={formData.q1}
-                      onValueChange={(v) => setFormData({ ...formData, q1: v })}
-                    >
-                      <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="option1">More than 30 minutes</SelectItem>
-                        <SelectItem value="option2">Less than 30 minutes</SelectItem>
-                        <SelectItem value="option3">Negligible</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+          <div className="mt-4 space-y-2">
+            <Label>Other Comorbidity</Label>
+            <Input
+              placeholder="Specify any other condition"
+              value={formData.other_comorbidity}
+              onChange={(e) =>
+                setFormData({
+                  ...formData,
+                  other_comorbidity: e.target.value,
+                })
+              }
+            />
+          </div>
+        </div>
+      </AccordionContent>
+    </AccordionItem>
 
-                  {/* Q2 */}
-                  <div className="space-y-2 mt-4">
-                    <Label>2. Clothing Style</Label>
-                    <Select
-                      value={formData.q2}
-                      onValueChange={(v) => setFormData({ ...formData, q2: v })}
-                    >
-                      <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="option1">Shorts / T-shirts / Skirts</SelectItem>
-                        <SelectItem value="option2">Partial coverage (saree, half-sleeve shirt, etc.)</SelectItem>
-                        <SelectItem value="option3">Full coverage (burqa, full sleeves, etc.)</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+    {/* Section B */}
+    <AccordionItem value="sectionB">
+      <AccordionTrigger>Section B: Questionnaire</AccordionTrigger>
+      <AccordionContent>
+        <div className="mt-4 space-y-4">
+          {/* Q1 */}
+          <div>
+            <Label>1. Time Outdoors</Label>
+            <Select
+              value={formData.q1}
+              onValueChange={(v) => setFormData({ ...formData, q1: v })}
+            >
+              <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="option1">More than 30 minutes</SelectItem>
+                <SelectItem value="option2">Less than 30 minutes</SelectItem>
+                <SelectItem value="option3">Negligible</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
-                  {/* Q3–Q12 Yes/No (Unified Section) */}
-                  {[
-                    { key: "q3", text: "3. Use of Sunscreen (SPF >15 before going out)?" },
-                    { key: "q4", text: "4. Do you live in a highly polluted / foggy area?" },
-                    { key: "q5", text: "5. Do you follow a strict vegetarian / vegan diet?" },
-                    { key: "q6", text: "6. Do you consume < 2 servings of fortified milk/foods per day?" },
-                    { key: "q7", text: "7. Do you consume egg yolks or fatty fish < once a week?" },
-                    { key: "q8", text: "8. Do you have darker skin tone (less sunlight penetration)?" },
-                    { key: "q9", text: "9. Do you have malabsorption conditions (Celiac, Crohn’s, etc.)?" },
-                    { key: "q10", text: "10. Are you on long-term medication affecting Vitamin D metabolism?" },
-                    { key: "q11", text: "11. Have you been diagnosed with osteoporosis or fractures?" },
-                    { key: "q12", text: "12. Do you frequently experience musculoskeletal pain / weakness?" },
-                  ].map(({ key, text }) => (
-                    <div key={key} className="space-y-2 mt-4">
-                      <Label>{text}</Label>
-                      <Select
-                        value={formData[key as keyof typeof formData]}
-                        onValueChange={(v) => setFormData({ ...formData, [key]: v })}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Yes/No" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="yes">Yes</SelectItem>
-                          <SelectItem value="no">No</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  ))}
+          {/* Q2 */}
+          <div>
+            <Label>2. Clothing Style</Label>
+            <Select
+              value={formData.q2}
+              onValueChange={(v) => setFormData({ ...formData, q2: v })}
+            >
+              <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="option1">Shorts / T-shirts / Skirts</SelectItem>
+                <SelectItem value="option2">Partial coverage</SelectItem>
+                <SelectItem value="option3">Full coverage</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
-                </div>
+        {/* Q3–Q12 Yes/No (Descriptive Vitamin D Questions) */}
+{[
+  { key: "q3", text: "3. Use of Sunscreen (SPF >15 before going out)?" },
+  { key: "q4", text: "4. Do you live in a highly polluted or foggy area?" },
+  { key: "q5", text: "5. Do you follow a strict vegetarian or vegan diet?" },
+  { key: "q6", text: "6. Do you consume less than 2 servings of fortified milk or Vitamin D–rich foods per day?" },
+  { key: "q7", text: "7. Do you consume egg yolks or fatty fish less than once per week?" },
+  { key: "q8", text: "8. Do you have darker skin tone (which reduces sunlight penetration)?" },
+  { key: "q9", text: "9. Do you suffer from malabsorption conditions (like Celiac or Crohn’s disease)?" },
+  { key: "q10", text: "10. Are you on long-term medication that affects Vitamin D metabolism (e.g., steroids, anticonvulsants)?" },
+  { key: "q11", text: "11. Have you ever been diagnosed with osteoporosis or had frequent fractures?" },
+  { key: "q12", text: "12. Do you frequently experience muscle or joint pain, weakness, or fatigue?" },
+].map(({ key, text }) => (
+  <div key={key} className="space-y-2 mt-4">
+    <Label>{text}</Label>
+    <Select
+      value={formData[key as keyof typeof formData]}
+      onValueChange={(v) => setFormData({ ...formData, [key]: v })}
+    >
+      <SelectTrigger>
+        <SelectValue placeholder="Yes/No" />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="yes">Yes</SelectItem>
+        <SelectItem value="no">No</SelectItem>
+      </SelectContent>
+    </Select>
+  </div>
+))}
 
+        </div>
+      </AccordionContent>
+    </AccordionItem>
+  </Accordion>
 
+  <div className="flex justify-end space-x-4 mt-6">
+    <Button type="button" variant="outline" onClick={() => setShowAddForm(false)}>
+      Cancel
+    </Button>
+    <Button type="submit">
+      <Calculator className="h-4 w-4 mr-2" />
+      Calculate Score
+    </Button>
+  </div>
 
-                <div className="flex justify-end space-x-4">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setShowAddForm(false)}
-                  >
-                    Cancel
-                  </Button>
-                  <Button type="submit">
-                    <Calculator className="h-4 w-4 mr-2" />
-                    Calculate Score
-                  </Button>
-                </div>
-              </form>
+</form>
+
             </CardContent>
           </Card>
         )}

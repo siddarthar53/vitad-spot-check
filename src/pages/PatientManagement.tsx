@@ -49,7 +49,6 @@ const PatientManagement = () => {
   const [showAddForm, setShowAddForm] = useState(false);
   const [loading, setLoading] = useState(true);
   const [showSummary, setShowSummary] = useState(false);
-  const [currentPatientId, setCurrentPatientId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
   initials: "",
   age: "",
@@ -121,7 +120,9 @@ const fetchPatients = async () => {
     return "High Risk";
   };
 
-const handleSavePatient = async () => {
+const handleAddPatient = async (e: React.FormEvent) => {
+  e.preventDefault();
+
   if (!formData.initials || !formData.age || !formData.gender || !formData.weight_kg) {
     toast({
       title: "Missing required fields",
@@ -132,140 +133,67 @@ const handleSavePatient = async () => {
   }
 
   try {
+    const nextPatientNumber = patients.length + 1;
+
+    // ✅ Convert inputs safely
     const heightFeet = Number(formData.height_feet) || 0;
     const heightInches = Number(formData.height_inches) || 0;
     const totalInches = heightFeet * 12 + heightInches;
     const heightMeters = totalInches > 0 ? totalInches * 0.0254 : 0;
+
     const weightKg = Number(formData.weight_kg) || 0;
     const age = Number(formData.age) || 0;
+
+    // ✅ Safely calculate BMI (prevent NaN)
     const bmi = heightMeters > 0 ? calculateBMI(weightKg, heightMeters) : 0;
 
-    if (currentPatientId) {
-      // Update existing patient (without recalculating scores)
-      const { error } = await supabase
-        .from("patients")
-        .update({
-          initials: formData.initials.trim(),
-          age: age,
-          gender: formData.gender,
-          height_feet: heightFeet || null,
-          height_inches: heightInches || null,
-          height_meters: heightMeters || null,
-          weight_kg: weightKg || null,
-          bmi: bmi || null,
-          diabetes: formData.diabetes,
-          hypertension: formData.hypertension,
-          hypothyroidism: formData.hypothyroidism,
-          hyperthyroidism: formData.hyperthyroidism,
-          other_comorbidity: formData.other_comorbidity || null,
-        })
-        .eq("id", currentPatientId);
-
-      if (error) throw error;
-
-      toast({
-        title: "Patient data saved",
-        description: "Patient information has been updated.",
-      });
-    } else {
-      // Insert new patient without scores
-      const nextPatientNumber = patients.length + 1;
-      
-      const { data, error } = await supabase
-        .from("patients")
-        .insert({
-          camp_id: campId,
-          patient_number: nextPatientNumber,
-          initials: formData.initials.trim(),
-          age: age,
-          gender: formData.gender,
-          height_feet: heightFeet || null,
-          height_inches: heightInches || null,
-          height_meters: heightMeters || null,
-          weight_kg: weightKg || null,
-          bmi: bmi || null,
-          diabetes: formData.diabetes,
-          hypertension: formData.hypertension,
-          hypothyroidism: formData.hypothyroidism,
-          hyperthyroidism: formData.hyperthyroidism,
-          other_comorbidity: formData.other_comorbidity || null,
-          section_a_score: null,
-          section_b_score: null,
-          total_score: null,
-          risk_level: null,
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      await supabase
-        .from("camps")
-        .update({ total_patients: nextPatientNumber })
-        .eq("id", campId);
-
-      setCurrentPatientId(data.id);
-
-      toast({
-        title: "Patient data saved",
-        description: `Patient #${nextPatientNumber} saved. You can now calculate the score.`,
-      });
-    }
-
-    fetchPatients();
-  } catch (error: any) {
-    toast({
-      title: "Error saving patient",
-      description: error.message,
-      variant: "destructive",
-    });
-  }
-};
-
-const handleCalculateScore = async (e: React.FormEvent) => {
-  e.preventDefault();
-
-  if (!currentPatientId) {
-    // If no patient saved yet, save first then calculate
-    await handleSavePatient();
-    // Wait for the patient to be created and ID set
-    setTimeout(() => {
-      handleCalculateScore(e);
-    }, 500);
-    return;
-  }
-
-  try {
-    const heightFeet = Number(formData.height_feet) || 0;
-    const heightInches = Number(formData.height_inches) || 0;
-    const totalInches = heightFeet * 12 + heightInches;
-    const heightMeters = totalInches > 0 ? totalInches * 0.0254 : 0;
-    const weightKg = Number(formData.weight_kg) || 0;
-    const age = Number(formData.age) || 0;
-    const bmi = heightMeters > 0 ? calculateBMI(weightKg, heightMeters) : 0;
-
+    // ✅ Calculate section scores
     const sectionAScore = Number(calculateSectionAScore(age, bmi)) || 0;
     const sectionBScore = Number(calculateSectionBScore(formData)) || 0;
     const totalScore = sectionAScore + sectionBScore;
     const riskLevel = getRiskLevel(totalScore);
 
-    const { error } = await supabase
+    // ✅ Ensure numeric fields are inserted as numbers
+    const { data, error } = await supabase
       .from("patients")
-      .update({
+      .insert({
+        camp_id: campId,
+        patient_number: nextPatientNumber,
+        initials: formData.initials.trim(),
+        age: age,
+        gender: formData.gender,
+        height_feet: heightFeet || null,
+        height_inches: heightInches || null,
+        height_meters: heightMeters || null,
+        weight_kg: weightKg || null,
+        bmi: bmi || null,
+        diabetes: formData.diabetes,
+        hypertension: formData.hypertension,
+        hypothyroidism: formData.hypothyroidism,
+        hyperthyroidism: formData.hyperthyroidism,
+        other_comorbidity: formData.other_comorbidity || null,
         section_a_score: sectionAScore,
         section_b_score: sectionBScore,
         total_score: totalScore,
         risk_level: riskLevel,
       })
-      .eq("id", currentPatientId);
+      .select()
+      .single();
 
     if (error) throw error;
 
+    // ✅ Update total patients in camp
+    await supabase
+      .from("camps")
+      .update({ total_patients: nextPatientNumber })
+      .eq("id", campId);
+
     toast({
-      title: "Score calculated successfully",
-      description: `Total Score: ${totalScore} - Risk Level: ${riskLevel}`,
+      title: "Patient added successfully",
+      description: `Patient #${nextPatientNumber} has been registered.`,
     });
 
+    // ✅ Reset form & refresh
     setFormData({
       initials: "",
       age: "",
@@ -291,12 +219,12 @@ const handleCalculateScore = async (e: React.FormEvent) => {
       q11: "",
       q12: "",
     });
-    setCurrentPatientId(null);
+
     setShowAddForm(false);
     fetchPatients();
   } catch (error: any) {
     toast({
-      title: "Error calculating score",
+      title: "Error adding patient",
       description: error.message,
       variant: "destructive",
     });
@@ -578,7 +506,7 @@ Consult your doctor for testing.
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <form onSubmit={handleCalculateScore} className="space-y-6">
+              <form onSubmit={handleAddPatient} className="space-y-6">
 
   <Accordion type="single" collapsible defaultValue="sectionA">
     {/* Section A */}
@@ -769,7 +697,7 @@ Consult your doctor for testing.
   <div key={key} className="space-y-2 mt-4">
     <Label>{text}</Label>
     <Select
-      value={formData[key as keyof typeof formData] as string}
+      value={formData[key as keyof typeof formData]}
       onValueChange={(v) => setFormData({ ...formData, [key]: v })}
     >
       <SelectTrigger>
@@ -789,14 +717,8 @@ Consult your doctor for testing.
   </Accordion>
 
   <div className="flex justify-end space-x-4 mt-6">
-    <Button type="button" variant="outline" onClick={() => {
-      setShowAddForm(false);
-      setCurrentPatientId(null);
-    }}>
+    <Button type="button" variant="outline" onClick={() => setShowAddForm(false)}>
       Cancel
-    </Button>
-    <Button type="button" variant="secondary" onClick={handleSavePatient}>
-      Save
     </Button>
     <Button type="submit">
       <Calculator className="h-4 w-4 mr-2" />

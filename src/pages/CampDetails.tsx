@@ -51,8 +51,8 @@ const CampDetails = () => {
       const moderate = patients.filter(p => p.risk_level === "Moderate Risk").length;
       const high = patients.filter(p => p.risk_level === "High Risk").length;
 
-      const campWithSummary = { ...data, risk_summary: { low, moderate, high } };
-      setCamp(campWithSummary);
+      data.risk_summary = { low, moderate, high };
+      setCamp(data);
     } catch (error: any) {
       toast({
         title: "Error fetching camp details",

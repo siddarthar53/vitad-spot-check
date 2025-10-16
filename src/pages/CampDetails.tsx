@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { ArrowLeft, Calendar, MapPin, Phone, Users, Plus, FileText } from "lucide-react";
+import { fetchCampWithDoctor, fetchCampPatients, generateSummaryMessage } from "@/utils/campUtils";
 
 interface CampData {
   id: string;
@@ -37,34 +38,22 @@ const CampDetails = () => {
     }
   }, [campId]);
 
-  const fetchCampDetails = async () => {
-    try {
-      const { data, error } = await supabase
-        .from("camps")
-        .select(`
-          *,
-          doctors!inner(*)
-        `)
-        .eq("id", campId)
-        .single();
+const fetchCampDetails = async () => {
+  try {
+    const data = await fetchCampWithDoctor(campId!);
+    setCamp(data);
+  } catch (error: any) {
+    toast({
+      title: "Error fetching camp details",
+      description: error.message,
+      variant: "destructive",
+    });
+    navigate("/");
+  } finally {
+    setLoading(false);
+  }
+};
 
-      if (error) throw error;
-
-      setCamp({
-        ...data,
-        doctor: data.doctors
-      });
-    } catch (error: any) {
-      toast({
-        title: "Error fetching camp details",
-        description: error.message,
-        variant: "destructive",
-      });
-      navigate("/");
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleCompleteCamp = async () => {
     if (!camp) return;
@@ -91,6 +80,40 @@ const CampDetails = () => {
       });
     }
   };
+
+  const sendSummaryToDoctor = async () => {
+  if (!camp) return;
+
+  try {
+    const patients = await fetchCampPatients(camp.id);
+    const message = generateSummaryMessage(
+      camp.doctor.name,
+      camp.doctor.clinic_name,
+      camp.doctor.city,
+      camp.camp_date,
+      patients
+    );
+
+    // ✅ Format WhatsApp number and open message link
+    const phone = camp.doctor.whatsapp_number.startsWith("+")
+      ? camp.doctor.whatsapp_number
+      : `+91${camp.doctor.whatsapp_number}`;
+    const waUrl = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+    window.open(waUrl, "_blank");
+
+    toast({
+      title: "Summary ready",
+      description: "Opening WhatsApp to send summary...",
+    });
+  } catch (err: any) {
+    toast({
+      title: "Error sending summary",
+      description: err.message,
+      variant: "destructive",
+    });
+  }
+};
+
 
   const getStatusBadgeVariant = (status: string) => {
     switch (status) {
@@ -244,26 +267,34 @@ const CampDetails = () => {
         </div>
 
         <div className="mt-8 flex justify-center space-x-4">
-          {camp.status === "active" && (
-            <>
-              <Button
-                onClick={() => navigate(`/camp/${camp.id}/patients`)}
-                className="bg-gradient-to-r from-primary to-medical-teal hover:from-primary/90 hover:to-medical-teal/90"
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                Manage Patients
-              </Button>
-              {camp.total_patients >= 20 && (
-                <Button
-                  variant="outline"
-                  onClick={handleCompleteCamp}
-                >
-                  Complete Camp
-                </Button>
-              )}
-            </>
-          )}
-        </div>
+  {camp.status === "active" ? (
+    <>
+      <Button
+        onClick={() => navigate(`/camp/${camp.id}/patients`)}
+        className="bg-gradient-to-r from-primary to-medical-teal hover:from-primary/90 hover:to-medical-teal/90"
+      >
+        <Plus className="h-4 w-4 mr-2" />
+        Manage Patients
+      </Button>
+      {camp.total_patients >= 20 && (
+        <Button
+          variant="outline"
+          onClick={handleCompleteCamp}
+        >
+          Complete Camp
+        </Button>
+      )}
+    </>
+  ) : camp.status === "completed" ? (
+    <Button
+      onClick={sendSummaryToDoctor}
+      className="bg-gradient-to-r from-green-600 to-green-400 hover:opacity-90"
+    >
+      Send Summary to Doctor
+    </Button>
+  ) : null}
+</div>
+
       </div>
     </div>
   );

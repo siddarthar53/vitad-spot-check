@@ -10,6 +10,8 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { ArrowLeft, Plus, Users, Calculator, FileText } from "lucide-react";
+import { fetchCampPatients, generateSummaryMessage } from "@/utils/campUtils";
+
 
 interface Patient {
   id: string;
@@ -39,6 +41,7 @@ const PatientManagement = () => {
   const [patients, setPatients] = useState<Patient[]>([]);
   const [showAddForm, setShowAddForm] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [showSummary, setShowSummary] = useState(false);
   const [formData, setFormData] = useState({
   initials: "",
   age: "",
@@ -76,26 +79,21 @@ const PatientManagement = () => {
     }
   }, [campId]);
 
-  const fetchPatients = async () => {
-    try {
-      const { data, error } = await supabase
-        .from("patients")
-        .select("*")
-        .eq("camp_id", campId)
-        .order("patient_number");
+const fetchPatients = async () => {
+  try {
+    const data = await fetchCampPatients(campId!);
+    setPatients(data);
+  } catch (error: any) {
+    toast({
+      title: "Error fetching patients",
+      description: error.message,
+      variant: "destructive",
+    });
+  } finally {
+    setLoading(false);
+  }
+};
 
-      if (error) throw error;
-      setPatients(data || []);
-    } catch (error: any) {
-      toast({
-        title: "Error fetching patients",
-        description: error.message,
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const calculateBMI = (weightKg: number, heightM: number): number => {
     return Math.round((weightKg / (heightM * heightM)) * 100) / 100;
@@ -115,111 +113,117 @@ const PatientManagement = () => {
     return "High Risk";
   };
 
-  const handleAddPatient = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!formData.initials || !formData.age || !formData.gender || !formData.weight_kg) {
-      toast({
-        title: "Missing required fields",
-        description: "Please fill in all required fields.",
-        variant: "destructive",
-      });
-      return;
-    }
+const handleAddPatient = async (e: React.FormEvent) => {
+  e.preventDefault();
 
-    try {
-      const nextPatientNumber = patients.length + 1;
-      
-      // Convert height to meters
-      const heightFeet = parseInt(formData.height_feet) || 0;
-      const heightInches = parseInt(formData.height_inches) || 0;
-      const heightMeters = (heightFeet * 12 + heightInches) * 0.0254;
-      
-      const weightKg = parseFloat(formData.weight_kg);
-      const bmi = calculateBMI(weightKg, heightMeters);
-      const age = parseInt(formData.age);
-      const sectionAScore = calculateSectionAScore(age, bmi);
+  if (!formData.initials || !formData.age || !formData.gender || !formData.weight_kg) {
+    toast({
+      title: "Missing required fields",
+      description: "Please fill in all required fields.",
+      variant: "destructive",
+    });
+    return;
+  }
 
-      // Calculate Section B score using the new function
-      const sectionBScore = calculateSectionBScore(formData);
-      const totalScore = sectionAScore + sectionBScore;
-      const riskLevel = getRiskLevel(totalScore);
+  try {
+    const nextPatientNumber = patients.length + 1;
 
-      const { data, error } = await supabase
-        .from("patients")
-        .insert({
-          camp_id: campId,
-          patient_number: nextPatientNumber,
-          initials: formData.initials,
-          age: age,
-          gender: formData.gender,
-          height_feet: heightFeet,
-          height_inches: heightInches,
-          height_meters: heightMeters,
-          weight_kg: weightKg,
-          bmi: bmi,
-          diabetes: formData.diabetes,
-          hypertension: formData.hypertension,
-          hypothyroidism: formData.hypothyroidism,
-          hyperthyroidism: formData.hyperthyroidism,
-          other_comorbidity: formData.other_comorbidity || null,
-          section_a_score: sectionAScore,
-          section_b_score: sectionBScore,
-          total_score: totalScore,
-          risk_level: riskLevel,
-        })
-        .select()
-        .single();
+    // ✅ Convert inputs safely
+    const heightFeet = Number(formData.height_feet) || 0;
+    const heightInches = Number(formData.height_inches) || 0;
+    const totalInches = heightFeet * 12 + heightInches;
+    const heightMeters = totalInches > 0 ? totalInches * 0.0254 : 0;
 
-      if (error) throw error;
+    const weightKg = Number(formData.weight_kg) || 0;
+    const age = Number(formData.age) || 0;
 
-      // Update camp patient count
-      await supabase
-        .from("camps")
-        .update({ total_patients: nextPatientNumber })
-        .eq("id", campId);
+    // ✅ Safely calculate BMI (prevent NaN)
+    const bmi = heightMeters > 0 ? calculateBMI(weightKg, heightMeters) : 0;
 
-      toast({
-        title: "Patient added successfully",
-        description: `Patient #${nextPatientNumber} has been registered.`,
-      });
+    // ✅ Calculate section scores
+    const sectionAScore = Number(calculateSectionAScore(age, bmi)) || 0;
+    const sectionBScore = Number(calculateSectionBScore(formData)) || 0;
+    const totalScore = sectionAScore + sectionBScore;
+    const riskLevel = getRiskLevel(totalScore);
 
-      // Reset form and refresh patients
-      setFormData({
-        initials: "",
-        age: "",
-        gender: "",
-        height_feet: "",
-        height_inches: "",
-        weight_kg: "",
-        diabetes: false,
-        hypertension: false,
-        hypothyroidism: false,
-        hyperthyroidism: false,
-        other_comorbidity: "",
-        q1: "",
-        q2: "",
-        q3: "",
-        q4: "",
-        q5: "",
-        q6: "",
-        q7: "",
-        q8: "",
-        q9: "",
-        q10: "",
-        q11: "",
-        q12: "",
-      });
-      setShowAddForm(false);
-      fetchPatients();
-    } catch (error: any) {
-      toast({
-        title: "Error adding patient",
-        description: error.message,
-        variant: "destructive",
-      });
-    }
-  };
+    // ✅ Ensure numeric fields are inserted as numbers
+    const { data, error } = await supabase
+      .from("patients")
+      .insert({
+        camp_id: campId,
+        patient_number: nextPatientNumber,
+        initials: formData.initials.trim(),
+        age: age,
+        gender: formData.gender,
+        height_feet: heightFeet || null,
+        height_inches: heightInches || null,
+        height_meters: heightMeters || null,
+        weight_kg: weightKg || null,
+        bmi: bmi || null,
+        diabetes: formData.diabetes,
+        hypertension: formData.hypertension,
+        hypothyroidism: formData.hypothyroidism,
+        hyperthyroidism: formData.hyperthyroidism,
+        other_comorbidity: formData.other_comorbidity || null,
+        section_a_score: sectionAScore,
+        section_b_score: sectionBScore,
+        total_score: totalScore,
+        risk_level: riskLevel,
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    // ✅ Update total patients in camp
+    await supabase
+      .from("camps")
+      .update({ total_patients: nextPatientNumber })
+      .eq("id", campId);
+
+    toast({
+      title: "Patient added successfully",
+      description: `Patient #${nextPatientNumber} has been registered.`,
+    });
+
+    // ✅ Reset form & refresh
+    setFormData({
+      initials: "",
+      age: "",
+      gender: "",
+      height_feet: "",
+      height_inches: "",
+      weight_kg: "",
+      diabetes: false,
+      hypertension: false,
+      hypothyroidism: false,
+      hyperthyroidism: false,
+      other_comorbidity: "",
+      q1: "",
+      q2: "",
+      q3: "",
+      q4: "",
+      q5: "",
+      q6: "",
+      q7: "",
+      q8: "",
+      q9: "",
+      q10: "",
+      q11: "",
+      q12: "",
+    });
+
+    setShowAddForm(false);
+    fetchPatients();
+  } catch (error: any) {
+    toast({
+      title: "Error adding patient",
+      description: error.message,
+      variant: "destructive",
+    });
+  }
+};
+
 
   const getRiskBadgeVariant = (riskLevel: string | null) => {
     switch (riskLevel) {
@@ -234,63 +238,213 @@ const PatientManagement = () => {
     }
   };
 
-  const calculateSectionBScore = (form: typeof formData): number => {
+const calculateSectionBScore = (form: typeof formData): number => {
   let score = 0;
 
-  // Q1
+  // Q1 & Q2 (special scoring)
   if (form.q1 === "option2") score += 2;
   if (form.q1 === "option3") score += 3;
 
-  // Q2
   if (form.q2 === "option2") score += 1;
   if (form.q2 === "option3") score += 3;
 
-  // Q3–Q7
-  if (form.q3 === "yes") score += 1;
-  if (form.q4 === "yes") score += 1;
-  if (form.q5 === "yes") score += 1;
-  if (form.q6 === "yes") score += 1;
-  if (form.q7 === "yes") score += 1;
-
-  // Q8
-  if (form.q8 === "option2") score += 0.25;
-  if (form.q8 === "option3") score += 0.75;
-  if (form.q8 === "option4") score += 1;
-
-  // Q9–Q12
-  if (form.q9 === "yes") score += 1;
-  if (form.q10 === "yes") score += 1;
-  if (form.q11 === "yes") score += 1;
-  if (form.q12 === "yes") score += 1;
+  // ✅ Q3–Q12 (all Yes = +1)
+  for (let i = 3; i <= 12; i++) {
+    const key = `q${i}` as keyof typeof form;
+    if (form[key] === "yes") score += 1;
+  }
 
   return score;
 };
 
+
+// ✅ Updated handleCompleteCamp to generate inline summary
+const handleCompleteCamp = async () => {
+  try {
+    const { error } = await supabase
+      .from("camps")
+      .update({ status: "completed" })
+      .eq("id", campId);
+
+    if (error) throw error;
+
+    const updatedPatients = await fetchCampPatients(campId!);
+    setPatients(updatedPatients);
+    setShowSummary(true);
+
+    toast({
+      title: "Camp Completed",
+      description: "Camp marked as completed and summary generated.",
+    });
+  } catch (err: any) {
+    toast({
+      title: "Error completing camp",
+      description: err.message,
+      variant: "destructive",
+    });
+  }
+};
+
+const sendSummaryToDoctor = async () => {
+  try {
+    // ✅ Fetch the doctor details, including whatsapp_number
+    const { data: campData, error: campError } = await supabase
+      .from("camps")
+      .select(`
+        camp_date,
+        doctors:doctor_id (
+          name,
+          phone,
+          whatsapp_number,
+          clinic_name,
+          city
+        )
+      `)
+      .eq("id", campId)
+      .single();
+
+    if (campError || !campData?.doctors)
+      throw new Error("Doctor details not found.");
+
+    const doctor = campData.doctors;
+
+    // ✅ Use WhatsApp number if available, fallback to regular phone
+    const contactNumber = doctor.whatsapp_number || doctor.phone;
+    const formattedPhone = contactNumber.startsWith("+")
+      ? contactNumber
+      : `+91${contactNumber}`;
+
+    // ✅ Calculate patient summary
+    const patientsData =
+      patients.length > 0 ? patients : await fetchCampPatients(campId!);
+
+    const total = patientsData.length;
+    const low = patientsData.filter((p) => p.risk_level === "Low Risk").length;
+    const moderate = patientsData.filter(
+      (p) => p.risk_level === "Moderate Risk"
+    ).length;
+    const high = patientsData.filter((p) => p.risk_level === "High Risk").length;
+
+    // ✅ WhatsApp message text (with risk score legend)
+    const message = `
+Dear Dr. ${doctor.name},
+
+Please find below the summary of the Vitamin D Deficiency Risk Assessment Camp conducted at your clinic (${doctor.clinic_name}, ${doctor.city}) on ${new Date(
+      campData.camp_date
+    ).toLocaleDateString()}.
+
+Total Patients Screened: ${total}
+Low Risk: ${low}
+Moderate Risk: ${moderate}
+High Risk: ${high}
+
+------------------------------
+RISK LEVEL GUIDE:
+Score 0–3   → Low Risk
+Score 4–6   → Moderate Risk
+Score ≥7    → High Risk
+------------------------------
+
+We thank you for your kind support and continuous patronage.
+For any concerns, please contact 9000000000.
+
+— Vitamin D Awareness Team
+    `;
+
+    // ✅ Open WhatsApp
+    const waUrl = `https://wa.me/${formattedPhone}?text=${encodeURIComponent(
+      message
+    )}`;
+    window.open(waUrl, "_blank");
+
+    toast({
+      title: "Summary ready to send",
+      description: `Opening WhatsApp to send summary to Dr. ${doctor.name}.`,
+    });
+
+    // ✅ Redirect to Camp Details after short delay
+    setTimeout(() => navigate(`/camp/${campId}`), 2000);
+  } catch (err: any) {
+    toast({
+      title: "Error sending summary",
+      description: err.message,
+      variant: "destructive",
+    });
+  }
+};
+
+
+
+
+
 const printWithRawBT = (patient: Patient) => {
+  // 🧩 Build comorbidity text vertically (one per line)
+  const comorbidities: string[] = [];
+
+  if (patient.diabetes) comorbidities.push("• Diabetes");
+  if (patient.hypertension) comorbidities.push("• Hypertension");
+  if (patient.hypothyroidism) comorbidities.push("• Hypothyroidism");
+  if (patient.hyperthyroidism) comorbidities.push("• Hyperthyroidism");
+  if (patient.other_comorbidity) comorbidities.push(`• ${patient.other_comorbidity}`);
+
+  const comorbidityText = comorbidities.length
+    ? comorbidities.join("\n")
+    : "• None";
+
+  // ✅ Safe defaults for fields
+  const feet = patient.height_feet ?? 0;
+  const inches = patient.height_inches ?? 0;
+  const weight = patient.weight_kg ?? 0;
+  const bmi = patient.bmi ? patient.bmi.toFixed(1) : "N/A";
+  const sectionA = patient.section_a_score ?? 0;
+  const sectionB = patient.section_b_score ?? 0;
+  const total = patient.total_score ?? 0;
+  const risk = patient.risk_level ?? "N/A";
+
+  // 🧾 Printable content with risk guide
   const printable = `
 --------------------------
  Vitamin D Risk Assessment
 --------------------------
 Patient: ${patient.initials}
 Age: ${patient.age}   Gender: ${patient.gender}
-Height: ${patient.height_feet}'${patient.height_inches}" 
-Weight: ${patient.weight_kg}kg
-BMI: ${patient.bmi?.toFixed(1)}
+Height: ${feet}'${inches}"
+Weight: ${weight}kg
+BMI: ${bmi}
 
-Section A Score: ${patient.section_a_score}
-Section B Score: ${patient.section_b_score}
-Total Score: ${patient.total_score}
+Comorbidities:
+${comorbidityText}
 
-Risk Level: ${patient.risk_level}
+Section A Score: ${sectionA}
+Section B Score: ${sectionB}
+Total Score: ${total}
+
+Risk Level: ${risk}
+--------------------------
+RISK LEVEL GUIDE:
+0–3   → Low Risk
+4–6   → Moderate Risk
+7+    → High Risk
 --------------------------
 This is a screening result.
 Consult your doctor for testing.
 `;
 
-  // RawBT integration
-  window.location.href = "rawbt:" + encodeURIComponent(printable);
+  // 📱 Detect device platform
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+  const isAndroid = /Android/.test(navigator.userAgent);
+
+  if (isAndroid) {
+    window.location.href = "rawbt:" + encodeURIComponent(printable);
+  } else if (isIOS) {
+    const emLabelURL = "emlabel://print?text=" + encodeURIComponent(printable);
+    window.location.href = emLabelURL;
+  } else {
+    alert("Printing is supported only on Android (RawBT) or iOS (EMLabel).");
+  }
 };
 
+  
 
 
   if (loading) {
@@ -394,7 +548,7 @@ Consult your doctor for testing.
                       type="number"
                       min="3"
                       max="8"
-                      placeholder="5"
+                      placeholder=""
                       value={formData.height_feet}
                       onChange={(e) => setFormData({ ...formData, height_feet: e.target.value })}
                     />
@@ -406,7 +560,7 @@ Consult your doctor for testing.
                       type="number"
                       min="0"
                       max="11"
-                      placeholder="8"
+                      placeholder=""
                       value={formData.height_inches}
                       onChange={(e) => setFormData({ ...formData, height_inches: e.target.value })}
                     />
@@ -520,48 +674,14 @@ Consult your doctor for testing.
                     </Select>
                   </div>
 
-                  {/* Q3–Q7 Yes/No */}
+                  {/* Q3–Q12 Yes/No (Unified Section) */}
                   {[
                     { key: "q3", text: "3. Use of Sunscreen (SPF >15 before going out)?" },
                     { key: "q4", text: "4. Do you live in a highly polluted / foggy area?" },
                     { key: "q5", text: "5. Do you follow a strict vegetarian / vegan diet?" },
                     { key: "q6", text: "6. Do you consume < 2 servings of fortified milk/foods per day?" },
                     { key: "q7", text: "7. Do you consume egg yolks or fatty fish < once a week?" },
-                  ].map(({ key, text }) => (
-                    <div key={key} className="space-y-2 mt-4">
-                      <Label>{text}</Label>
-                      <Select
-                        value={formData[key as keyof typeof formData]}
-                        onValueChange={(v) => setFormData({ ...formData, [key]: v })}
-                      >
-                        <SelectTrigger><SelectValue placeholder="Yes/No" /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="yes">Yes</SelectItem>
-                          <SelectItem value="no">No</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  ))}
-
-                  {/* Q8 */}
-                  <div className="space-y-2 mt-4">
-                    <Label>8. Skin Pigmentation</Label>
-                    <Select
-                      value={formData.q8}
-                      onValueChange={(v) => setFormData({ ...formData, q8: v })}
-                    >
-                      <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="option1">Very Fair</SelectItem>
-                        <SelectItem value="option2">Light</SelectItem>
-                        <SelectItem value="option3">Medium</SelectItem>
-                        <SelectItem value="option4">Dark</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  {/* Q9–Q12 Yes/No */}
-                  {[
+                    { key: "q8", text: "8. Do you have darker skin tone (less sunlight penetration)?" },
                     { key: "q9", text: "9. Do you have malabsorption conditions (Celiac, Crohn’s, etc.)?" },
                     { key: "q10", text: "10. Are you on long-term medication affecting Vitamin D metabolism?" },
                     { key: "q11", text: "11. Have you been diagnosed with osteoporosis or fractures?" },
@@ -573,7 +693,9 @@ Consult your doctor for testing.
                         value={formData[key as keyof typeof formData]}
                         onValueChange={(v) => setFormData({ ...formData, [key]: v })}
                       >
-                        <SelectTrigger><SelectValue placeholder="Yes/No" /></SelectTrigger>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Yes/No" />
+                        </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="yes">Yes</SelectItem>
                           <SelectItem value="no">No</SelectItem>
@@ -581,6 +703,7 @@ Consult your doctor for testing.
                       </Select>
                     </div>
                   ))}
+
                 </div>
 
 
@@ -595,7 +718,7 @@ Consult your doctor for testing.
                   </Button>
                   <Button type="submit">
                     <Calculator className="h-4 w-4 mr-2" />
-                    Add Patient & Calculate Score
+                    Calculate Score
                   </Button>
                 </div>
               </form>
@@ -701,6 +824,61 @@ Consult your doctor for testing.
             </CardContent>
           </Card>
         )}
+
+                {/* ✅ Show Complete Camp button when minimum 20 patients are reached */}
+        {patients.length >0 && (
+          <div className="mt-8 flex justify-center">
+            <Button
+              onClick={handleCompleteCamp}
+              disabled={showSummary} // Disable if summary is already shown
+              className="bg-gradient-to-r from-green-600 to-green-400 hover:opacity-90"
+            >
+              Complete Camp
+            </Button>
+          </div>
+        )}
+
+        {/* ✅ Inline Camp Summary after completion */}
+{showSummary && (
+  <Card className="mt-8 border-primary/40">
+    <CardHeader>
+      <CardTitle>Camp Summary</CardTitle>
+    </CardHeader>
+    <CardContent>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
+        <div>
+          <p className="text-sm text-muted-foreground">Low Risk</p>
+          <p className="text-xl font-bold text-green-600">
+            {patients.filter(p => p.risk_level === "Low Risk").length}
+          </p>
+        </div>
+        <div>
+          <p className="text-sm text-muted-foreground">Moderate Risk</p>
+          <p className="text-xl font-bold text-yellow-600">
+            {patients.filter(p => p.risk_level === "Moderate Risk").length}
+          </p>
+        </div>
+        <div>
+          <p className="text-sm text-muted-foreground">High Risk</p>
+          <p className="text-xl font-bold text-red-600">
+            {patients.filter(p => p.risk_level === "High Risk").length}
+          </p>
+        </div>
+      </div>
+
+      <div className="mt-6 flex justify-center">
+        <Button
+          onClick={sendSummaryToDoctor}
+          className="bg-gradient-to-r from-primary to-medical-teal hover:opacity-90"
+        >
+          Send Summary to Doctor
+        </Button>
+      </div>
+    </CardContent>
+  </Card>
+)}
+
+
       </div>
     </div>
   );

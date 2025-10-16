@@ -22,8 +22,8 @@ interface Camp {
 interface DashboardStats {
   totalCamps: number;
   activeCamps: number;
-  totalPatients: number;
   completedCamps: number;
+  totalPatients: number;
 }
 
 const Dashboard = () => {
@@ -31,8 +31,8 @@ const Dashboard = () => {
   const [stats, setStats] = useState<DashboardStats>({
     totalCamps: 0,
     activeCamps: 0,
-    totalPatients: 0,
     completedCamps: 0,
+    totalPatients: 0,
   });
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
@@ -44,7 +44,8 @@ const Dashboard = () => {
 
   const fetchDashboardData = async () => {
     try {
-      const { data: campsData, error: campsError } = await supabase
+      // ✅ Fetch all camps with doctor info in one query
+      const { data, error } = await supabase
         .from("camps")
         .select(`
           id,
@@ -53,40 +54,34 @@ const Dashboard = () => {
           total_patients,
           doctors!inner(name, clinic_name, city)
         `)
-        .order("created_at", { ascending: false })
-        .limit(5);
+        .order("camp_date", { ascending: false });
 
-      if (campsError) throw campsError;
+      if (error) throw error;
 
-      const formattedCamps = campsData?.map(camp => ({
-        ...camp,
-        doctor: camp.doctors
-      })) || [];
+      const formattedCamps =
+        data?.map((camp: any) => ({
+          ...camp,
+          doctor: camp.doctors,
+        })) || [];
 
-      setCamps(formattedCamps);
+      // ✅ Compute stats locally
+      const totalCamps = formattedCamps.length;
+      const activeCamps = formattedCamps.filter((c) => c.status === "active").length;
+      const completedCamps = formattedCamps.filter((c) => c.status === "completed").length;
+      const totalPatients = formattedCamps.reduce(
+        (sum, c) => sum + (c.total_patients || 0),
+        0
+      );
 
-      // Calculate stats
-      const { data: allCamps, error: statsError } = await supabase
-        .from("camps")
-        .select("status, total_patients");
+      // ✅ Keep only recent 5 camps for UI
+      const recentCamps = formattedCamps.slice(0, 5);
 
-      if (statsError) throw statsError;
-
-      const totalCamps = allCamps?.length || 0;
-      const activeCamps = allCamps?.filter(camp => camp.status === "active").length || 0;
-      const completedCamps = allCamps?.filter(camp => camp.status === "completed").length || 0;
-      const totalPatients = allCamps?.reduce((sum, camp) => sum + (camp.total_patients || 0), 0) || 0;
-
-      setStats({
-        totalCamps,
-        activeCamps,
-        completedCamps,
-        totalPatients,
-      });
-    } catch (error: any) {
+      setCamps(recentCamps);
+      setStats({ totalCamps, activeCamps, completedCamps, totalPatients });
+    } catch (err: any) {
       toast({
-        title: "Error fetching data",
-        description: error.message,
+        title: "Error fetching dashboard data",
+        description: err.message,
         variant: "destructive",
       });
     } finally {
@@ -102,6 +97,8 @@ const Dashboard = () => {
         description: error.message,
         variant: "destructive",
       });
+    } else {
+      navigate("/login");
     }
   };
 
@@ -139,7 +136,7 @@ const Dashboard = () => {
               <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary">
                 <Stethoscope className="h-4 w-4 text-primary-foreground" />
               </div>
-              <h1 className="text-xl font-bold text-foreground">VitaD Risk Assessment</h1>
+              <h1 className="text-xl font-bold text-foreground">Vitamin D Camp Dashboard</h1>
             </div>
             <Button variant="ghost" onClick={handleSignOut}>
               <LogOut className="h-4 w-4 mr-2" />
@@ -149,102 +146,61 @@ const Dashboard = () => {
         </div>
       </header>
 
+      {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Stats Cards */}
+        {/* Stats */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <Card className="bg-gradient-to-br from-card to-background border-primary/20">
-            <CardContent className="p-6">
-              <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  <Calendar className="h-8 w-8 text-medical-blue" />
-                </div>
-                <div className="ml-4">
-                  <div className="text-sm font-medium text-muted-foreground">Total Camps</div>
-                  <div className="text-2xl font-bold text-foreground">{stats.totalCamps}</div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-gradient-to-br from-card to-background border-medical-teal/20">
-            <CardContent className="p-6">
-              <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  <TrendingUp className="h-8 w-8 text-medical-teal" />
-                </div>
-                <div className="ml-4">
-                  <div className="text-sm font-medium text-muted-foreground">Active Camps</div>
-                  <div className="text-2xl font-bold text-foreground">{stats.activeCamps}</div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-gradient-to-br from-card to-background border-medical-success/20">
-            <CardContent className="p-6">
-              <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  <Users className="h-8 w-8 text-medical-success" />
-                </div>
-                <div className="ml-4">
-                  <div className="text-sm font-medium text-muted-foreground">Total Patients</div>
-                  <div className="text-2xl font-bold text-foreground">{stats.totalPatients}</div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-gradient-to-br from-card to-background border-medical-warning/20">
-            <CardContent className="p-6">
-              <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  <Calendar className="h-8 w-8 text-medical-warning" />
-                </div>
-                <div className="ml-4">
-                  <div className="text-sm font-medium text-muted-foreground">Completed</div>
-                  <div className="text-2xl font-bold text-foreground">{stats.completedCamps}</div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          <StatCard
+            icon={<Calendar className="h-8 w-8 text-medical-blue" />}
+            label="Total Camps"
+            value={stats.totalCamps}
+          />
+          <StatCard
+            icon={<TrendingUp className="h-8 w-8 text-medical-teal" />}
+            label="Active Camps"
+            value={stats.activeCamps}
+          />
+          <StatCard
+            icon={<Users className="h-8 w-8 text-medical-success" />}
+            label="Total Patients"
+            value={stats.totalPatients}
+          />
+          <StatCard
+            icon={<Calendar className="h-8 w-8 text-medical-warning" />}
+            label="Completed"
+            value={stats.completedCamps}
+          />
         </div>
 
         {/* Actions */}
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-2xl font-bold text-foreground">Recent Camps</h2>
-          <Button 
+          <Button
             onClick={() => navigate("/create-camp")}
-            className="bg-gradient-to-r from-primary to-medical-teal hover:from-primary/90 hover:to-medical-teal/90"
+            className="bg-gradient-to-r from-primary to-medical-teal hover:opacity-90"
           >
             <Plus className="h-4 w-4 mr-2" />
             Create New Camp
           </Button>
         </div>
 
-        {/* Recent Camps */}
+        {/* Camps List */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {camps.length === 0 ? (
-            <Card className="col-span-full">
-              <CardContent className="p-8 text-center">
-                <Calendar className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <h3 className="text-lg font-semibold text-foreground mb-2">No camps yet</h3>
-                <p className="text-muted-foreground mb-4">
-                  Start by creating your first Vitamin D risk assessment camp.
-                </p>
-                <Button onClick={() => navigate("/create-camp")}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Create Your First Camp
-                </Button>
-              </CardContent>
-            </Card>
+            <EmptyState onCreate={() => navigate("/create-camp")} />
           ) : (
             camps.map((camp) => (
-              <Card key={camp.id} className="hover:shadow-lg transition-shadow cursor-pointer">
+              <Card
+                key={camp.id}
+                className="hover:shadow-lg transition-shadow cursor-pointer"
+              >
                 <CardHeader>
                   <div className="flex justify-between items-start">
                     <div>
                       <CardTitle className="text-lg">{camp.doctor.name}</CardTitle>
-                      <CardDescription>{camp.doctor.clinic_name}, {camp.doctor.city}</CardDescription>
+                      <CardDescription>
+                        {camp.doctor.clinic_name}, {camp.doctor.city}
+                      </CardDescription>
                     </div>
                     <Badge variant={getStatusBadgeVariant(camp.status)}>
                       {camp.status}
@@ -265,15 +221,15 @@ const Dashboard = () => {
                     </div>
                   </div>
                   <div className="mt-4 flex space-x-2">
-                    <Button 
-                      variant="outline" 
+                    <Button
+                      variant="outline"
                       size="sm"
                       onClick={() => navigate(`/camp/${camp.id}`)}
                     >
                       View Details
                     </Button>
                     {camp.status === "active" && (
-                      <Button 
+                      <Button
                         size="sm"
                         onClick={() => navigate(`/camp/${camp.id}/patients`)}
                       >
@@ -290,5 +246,43 @@ const Dashboard = () => {
     </div>
   );
 };
+
+/* --- Subcomponents --- */
+
+const StatCard = ({
+  icon,
+  label,
+  value,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: number;
+}) => (
+  <Card className="bg-gradient-to-br from-card to-background border-primary/20">
+    <CardContent className="p-6 flex items-center">
+      <div className="flex-shrink-0">{icon}</div>
+      <div className="ml-4">
+        <div className="text-sm font-medium text-muted-foreground">{label}</div>
+        <div className="text-2xl font-bold text-foreground">{value}</div>
+      </div>
+    </CardContent>
+  </Card>
+);
+
+const EmptyState = ({ onCreate }: { onCreate: () => void }) => (
+  <Card className="col-span-full text-center p-8">
+    <Calendar className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+    <h3 className="text-lg font-semibold text-foreground mb-2">
+      No camps found
+    </h3>
+    <p className="text-muted-foreground mb-4">
+      Start by creating your first Vitamin D Risk Assessment Camp.
+    </p>
+    <Button onClick={onCreate}>
+      <Plus className="h-4 w-4 mr-2" />
+      Create Your First Camp
+    </Button>
+  </Card>
+);
 
 export default Dashboard;

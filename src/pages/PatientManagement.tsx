@@ -63,7 +63,7 @@ const PatientManagement = () => {
   hypothyroidism: false,
   hyperthyroidism: false,
   other_comorbidity: "",
-  // Section B answers
+  // Section B answers (18 questions)
   q1: "",
   q2: "",
   q3: "",
@@ -76,6 +76,12 @@ const PatientManagement = () => {
   q10: "",
   q11: "",
   q12: "",
+  q13: "",
+  q14: "",
+  q15: "",
+  q16: "",
+  q17: "",
+  q18: "",
 });
 
 
@@ -109,17 +115,15 @@ const fetchPatients = async () => {
   };
 
   const calculateSectionAScore = (age: number, bmi: number): number => {
-    let score = 0;
-    if (age > 50) score += 1;
-    if (bmi >= 25) score += 1;
-    return score;
+    // This function is no longer used as scoring is now done in Section B
+    return 0;
   };
 
 
   const getRiskLevel = (totalScore: number): string => {
-    if (totalScore <= 3) return "Low Risk";
-    if (totalScore <= 6) return "Moderate Risk";
-    return "High Risk";
+    if (totalScore < 5) return "Sufficient";
+    if (totalScore <= 7.75) return "Insufficient";
+    return "Deficient";
   };
 
 const handleAddPatient = async (e: React.FormEvent) => {
@@ -150,8 +154,8 @@ const handleAddPatient = async (e: React.FormEvent) => {
     const bmi = heightMeters > 0 ? calculateBMI(weightKg, heightMeters) : 0;
 
     // ✅ Calculate section scores
-    const sectionAScore = Number(calculateSectionAScore(age, bmi)) || 0;
-    const sectionBScore = Number(calculateSectionBScore(formData)) || 0;
+    const sectionAScore = 0; // Not used anymore
+    const sectionBScore = Number(calculateSectionBScore(formData, age, bmi)) || 0;
     const totalScore = sectionAScore + sectionBScore;
     const riskLevel = getRiskLevel(totalScore);
 
@@ -220,6 +224,12 @@ const handleAddPatient = async (e: React.FormEvent) => {
       q10: "",
       q11: "",
       q12: "",
+      q13: "",
+      q14: "",
+      q15: "",
+      q16: "",
+      q17: "",
+      q18: "",
     });
 
     setShowAddForm(false);
@@ -236,32 +246,69 @@ const handleAddPatient = async (e: React.FormEvent) => {
 
   const getRiskBadgeVariant = (riskLevel: string | null) => {
     switch (riskLevel) {
-      case "Low Risk":
+      case "Sufficient":
         return "secondary";
-      case "Moderate Risk":
+      case "Insufficient":
         return "default";
-      case "High Risk":
+      case "Deficient":
         return "destructive";
       default:
         return "outline";
     }
   };
 
-const calculateSectionBScore = (form: typeof formData): number => {
+const calculateSectionBScore = (form: typeof formData, age: number, bmi: number): number => {
   let score = 0;
 
-  // Q1 & Q2 (special scoring)
-  if (form.q1 === "option2") score += 2;
-  if (form.q1 === "option3") score += 3;
+  // Q1: Age > 50?
+  if (form.q1 === "yes") score += 0.5;
 
-  if (form.q2 === "option2") score += 1;
-  if (form.q2 === "option3") score += 3;
+  // Q2: BMI ≥ 30?
+  if (form.q2 === "yes") score += 1;
 
-  // ✅ Q3–Q12 (all Yes = +1)
-  for (let i = 3; i <= 12; i++) {
-    const key = `q${i}` as keyof typeof form;
-    if (form[key] === "yes") score += 1;
-  }
+  // Q3: Skin tone
+  if (form.q3 === "dark") score += 0;
+  else if (form.q3 === "wheatish") score += 0.25;
+  else if (form.q3 === "fair") score += 0.75;
+  else if (form.q3 === "very_fair") score += 1;
+
+  // Q4: Clothing style
+  if (form.q4 === "shorts") score += 0;
+  else if (form.q4 === "partial") score += 1;
+  else if (form.q4 === "full") score += 3;
+
+  // Q5: Time outdoors
+  if (form.q5 === "more_30") score += 0;
+  else if (form.q5 === "less_30") score += 2;
+  else if (form.q5 === "negligible") score += 3;
+
+  // Q6: Sunscreen (Yes/No)
+  if (form.q6 === "yes") score += 1;
+
+  // Q7: Pollution (Yes/No)
+  if (form.q7 === "yes") score += 1;
+
+  // Q8: Animal foods
+  if (form.q8 === "no_intake") score += 1;
+  else if (form.q8 === "occasional") score += 0.5;
+  else if (form.q8 === "regular") score += 0;
+
+  // Q9-Q12: Yes/No (each Yes = +1)
+  if (form.q9 === "yes") score += 1;
+  if (form.q10 === "yes") score += 1;
+  if (form.q11 === "yes") score += 1;
+  if (form.q12 === "yes") score += 1;
+
+  // Q13-Q17: No/Sometimes/Often (0, 0.25, 0.5)
+  const symptomQuestions = ["q13", "q14", "q15", "q16", "q17"];
+  symptomQuestions.forEach((q) => {
+    const key = q as keyof typeof form;
+    if (form[key] === "sometimes") score += 0.25;
+    else if (form[key] === "often") score += 0.5;
+  });
+
+  // Q18: Vitamin D supplementation (Yes = -5)
+  if (form.q18 === "yes") score -= 5;
 
   return score;
 };

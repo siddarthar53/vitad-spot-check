@@ -9,7 +9,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { ArrowLeft, Plus, Users, Calculator, FileText } from "lucide-react";
+import { ArrowLeft, Plus, Users, Calculator, FileText, Languages } from "lucide-react";
 import { fetchCampPatients, generateSummaryMessage } from "@/utils/campUtils";
 import {
   Accordion,
@@ -17,6 +17,7 @@ import {
   AccordionTrigger,
   AccordionContent,
 } from "@/components/ui/accordion";
+import { formTranslations, type Language } from "@/utils/formTranslations";
 
 
 
@@ -49,6 +50,7 @@ const PatientManagement = () => {
   const [showAddForm, setShowAddForm] = useState(false);
   const [loading, setLoading] = useState(true);
   const [showSummary, setShowSummary] = useState(false);
+  const [language, setLanguage] = useState<Language>("english");
   const [formData, setFormData] = useState({
   initials: "",
   age: "",
@@ -497,13 +499,30 @@ Consult your doctor for testing.
         {showAddForm && (
           <Card className="mb-6">
             <CardHeader>
-              <CardTitle className="flex items-center">
-                <Users className="h-5 w-5 mr-2 text-primary" />
-                Add New Patient
-              </CardTitle>
-              <CardDescription>
-                Patient #{patients.length + 1} - Section A: Basic Information
-              </CardDescription>
+              <div className="flex justify-between items-start mb-4">
+                <div>
+                  <CardTitle className="flex items-center">
+                    <Users className="h-5 w-5 mr-2 text-primary" />
+                    Add New Patient
+                  </CardTitle>
+                  <CardDescription>
+                    Patient #{patients.length + 1}
+                  </CardDescription>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Languages className="h-4 w-4 text-muted-foreground" />
+                  <Select value={language} onValueChange={(v) => setLanguage(v as Language)}>
+                    <SelectTrigger className="w-[140px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="english">English</SelectItem>
+                      <SelectItem value="hindi">हिंदी</SelectItem>
+                      <SelectItem value="telugu">తెలుగు</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
             </CardHeader>
             <CardContent>
               <form onSubmit={handleAddPatient} className="space-y-6">
@@ -511,11 +530,11 @@ Consult your doctor for testing.
   <Accordion type="single" collapsible defaultValue="sectionA">
     {/* Section A */}
     <AccordionItem value="sectionA">
-      <AccordionTrigger>Section A: Basic Information</AccordionTrigger>
+      <AccordionTrigger>{formTranslations[language].sectionA}</AccordionTrigger>
       <AccordionContent>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
           <div className="space-y-2">
-            <Label>Patient Initials *</Label>
+            <Label>{formTranslations[language].patientInitials} *</Label>
             <Input
               placeholder="J.D."
               value={formData.initials}
@@ -526,7 +545,7 @@ Consult your doctor for testing.
             />
           </div>
           <div className="space-y-2">
-            <Label>Age *</Label>
+            <Label>{formTranslations[language].age} *</Label>
             <Input
               type="number"
               min="1"
@@ -539,7 +558,7 @@ Consult your doctor for testing.
             />
           </div>
           <div className="space-y-2">
-            <Label>Gender *</Label>
+            <Label>{formTranslations[language].gender} *</Label>
             <Select
               value={formData.gender}
               onValueChange={(value) =>
@@ -547,12 +566,11 @@ Consult your doctor for testing.
               }
             >
               <SelectTrigger>
-                <SelectValue placeholder="Select gender" />
+                <SelectValue placeholder={formTranslations[language].selectGender} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="Male">Male</SelectItem>
-                <SelectItem value="Female">Female</SelectItem>
-                <SelectItem value="Other">Other</SelectItem>
+                <SelectItem value="Male">{formTranslations[language].male}</SelectItem>
+                <SelectItem value="Female">{formTranslations[language].female}</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -560,7 +578,7 @@ Consult your doctor for testing.
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
           <div className="space-y-2">
-            <Label>Height (Feet)</Label>
+            <Label>{formTranslations[language].heightFeet}</Label>
             <Input
               type="number"
               min="3"
@@ -572,7 +590,7 @@ Consult your doctor for testing.
             />
           </div>
           <div className="space-y-2">
-            <Label>Height (Inches)</Label>
+            <Label>{formTranslations[language].heightInches}</Label>
             <Input
               type="number"
               min="0"
@@ -584,7 +602,7 @@ Consult your doctor for testing.
             />
           </div>
           <div className="space-y-2">
-            <Label>Weight (kg) *</Label>
+            <Label>{formTranslations[language].weightKg} *</Label>
             <Input
               type="number"
               min="20"
@@ -601,34 +619,32 @@ Consult your doctor for testing.
 
         {/* Co-morbidities */}
         <div className="mt-4">
-          <Label className="text-base font-semibold">Co-morbidities</Label>
+          <Label className="text-base font-semibold">{formTranslations[language].comorbidities}</Label>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-2">
             {[
-              "diabetes",
-              "hypertension",
-              "hypothyroidism",
-              "hyperthyroidism",
-            ].map((disease) => (
-              <div key={disease} className="flex items-center space-x-2">
+              { key: "diabetes", label: formTranslations[language].diabetes },
+              { key: "hypertension", label: formTranslations[language].hypertension },
+              { key: "hypothyroidism", label: formTranslations[language].hypothyroidism },
+              { key: "hyperthyroidism", label: formTranslations[language].hyperthyroidism },
+            ].map(({ key, label }) => (
+              <div key={key} className="flex items-center space-x-2">
                 <Checkbox
-                  id={disease}
-                  checked={formData[disease as keyof typeof formData] as boolean}
+                  id={key}
+                  checked={formData[key as keyof typeof formData] as boolean}
                   onCheckedChange={(checked) =>
                     setFormData({
                       ...formData,
-                      [disease]: checked as boolean,
+                      [key]: checked as boolean,
                     })
                   }
                 />
-                <Label htmlFor={disease}>
-                  {disease.charAt(0).toUpperCase() + disease.slice(1)}
-                </Label>
+                <Label htmlFor={key}>{label}</Label>
               </div>
             ))}
           </div>
 
           <div className="mt-4 space-y-2">
-            <Label>Other Comorbidity</Label>
+            <Label>{formTranslations[language].otherComorbidity}</Label>
             <Input
               placeholder="Specify any other condition"
               value={formData.other_comorbidity}
@@ -697,7 +713,7 @@ Consult your doctor for testing.
   <div key={key} className="space-y-2 mt-4">
     <Label>{text}</Label>
     <Select
-      value={formData[key as keyof typeof formData]}
+      value={String(formData[key as keyof typeof formData] || "")}
       onValueChange={(v) => setFormData({ ...formData, [key]: v })}
     >
       <SelectTrigger>
@@ -718,11 +734,11 @@ Consult your doctor for testing.
 
   <div className="flex justify-end space-x-4 mt-6">
     <Button type="button" variant="outline" onClick={() => setShowAddForm(false)}>
-      Cancel
+      {formTranslations[language].cancel}
     </Button>
     <Button type="submit">
       <Calculator className="h-4 w-4 mr-2" />
-      Calculate Score
+      {formTranslations[language].calculate}
     </Button>
   </div>
 

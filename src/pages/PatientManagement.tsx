@@ -709,70 +709,325 @@ Consult your doctor for testing.
 
     {/* Section B */}
     <AccordionItem value="sectionB">
-      <AccordionTrigger>Section B: Questionnaire</AccordionTrigger>
+      <AccordionTrigger>{formTranslations[language].sectionB}</AccordionTrigger>
       <AccordionContent>
         <div className="mt-4 space-y-4">
-          {/* Q1 */}
+          {/* Q1: Age */}
           <div>
-            <Label>1. Time Outdoors</Label>
+            <Label>
+              {typeof formTranslations[language].questions.q1 === 'string' 
+                ? formTranslations[language].questions.q1 
+                : formTranslations[language].questions.q1.text}
+            </Label>
             <Select
               value={formData.q1}
               onValueChange={(v) => setFormData({ ...formData, q1: v })}
             >
-              <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+              <SelectTrigger><SelectValue placeholder={formTranslations[language].select} /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="option1">More than 30 minutes</SelectItem>
-                <SelectItem value="option2">Less than 30 minutes</SelectItem>
-                <SelectItem value="option3">Negligible</SelectItem>
+                <SelectItem value="yes">{formTranslations[language].yes}</SelectItem>
+                <SelectItem value="no">{formTranslations[language].no}</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
-          {/* Q2 */}
+          {/* Q2: BMI */}
           <div>
-            <Label>2. Clothing Style</Label>
+            <Label>
+              {typeof formTranslations[language].questions.q2 === 'string' 
+                ? formTranslations[language].questions.q2 
+                : formTranslations[language].questions.q2.text}
+            </Label>
             <Select
               value={formData.q2}
               onValueChange={(v) => setFormData({ ...formData, q2: v })}
             >
-              <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+              <SelectTrigger><SelectValue placeholder={formTranslations[language].select} /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="option1">Shorts / T-shirts / Skirts</SelectItem>
-                <SelectItem value="option2">Partial coverage</SelectItem>
-                <SelectItem value="option3">Full coverage</SelectItem>
+                <SelectItem value="yes">{formTranslations[language].yes}</SelectItem>
+                <SelectItem value="no">{formTranslations[language].no}</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
-        {/* Q3–Q12 Yes/No (Descriptive Vitamin D Questions) */}
-{[
-  { key: "q3", text: "3. Use of Sunscreen (SPF >15 before going out)?" },
-  { key: "q4", text: "4. Do you live in a highly polluted or foggy area?" },
-  { key: "q5", text: "5. Do you follow a strict vegetarian or vegan diet?" },
-  { key: "q6", text: "6. Do you consume less than 2 servings of fortified milk or Vitamin D–rich foods per day?" },
-  { key: "q7", text: "7. Do you consume egg yolks or fatty fish less than once per week?" },
-  { key: "q8", text: "8. Do you have darker skin tone (which reduces sunlight penetration)?" },
-  { key: "q9", text: "9. Do you suffer from malabsorption conditions (like Celiac or Crohn’s disease)?" },
-  { key: "q10", text: "10. Are you on long-term medication that affects Vitamin D metabolism (e.g., steroids, anticonvulsants)?" },
-  { key: "q11", text: "11. Have you ever been diagnosed with osteoporosis or had frequent fractures?" },
-  { key: "q12", text: "12. Do you frequently experience muscle or joint pain, weakness, or fatigue?" },
-].map(({ key, text }) => (
-  <div key={key} className="space-y-2 mt-4">
-    <Label>{text}</Label>
-    <Select
-      value={String(formData[key as keyof typeof formData] || "")}
-      onValueChange={(v) => setFormData({ ...formData, [key]: v })}
-    >
-      <SelectTrigger>
-        <SelectValue placeholder="Yes/No" />
-      </SelectTrigger>
-      <SelectContent>
-        <SelectItem value="yes">Yes</SelectItem>
-        <SelectItem value="no">No</SelectItem>
-      </SelectContent>
-    </Select>
-  </div>
-))}
+          {/* Q3: Skin Tone */}
+          <div>
+            <Label>
+              {typeof formTranslations[language].questions.q3 === 'string' 
+                ? formTranslations[language].questions.q3 
+                : formTranslations[language].questions.q3.text}
+            </Label>
+            <Select
+              value={formData.q3}
+              onValueChange={(v) => setFormData({ ...formData, q3: v })}
+            >
+              <SelectTrigger><SelectValue placeholder={formTranslations[language].select} /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="dark">{formTranslations[language].dark}</SelectItem>
+                <SelectItem value="wheatish">{formTranslations[language].wheatish}</SelectItem>
+                <SelectItem value="fair">{formTranslations[language].fair}</SelectItem>
+                <SelectItem value="very_fair">{formTranslations[language].veryFair}</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Q4: Clothing Style */}
+          <div>
+            <Label>
+              {typeof formTranslations[language].questions.q4 === 'string' 
+                ? formTranslations[language].questions.q4 
+                : formTranslations[language].questions.q4.text}
+            </Label>
+            <Select
+              value={formData.q4}
+              onValueChange={(v) => setFormData({ ...formData, q4: v })}
+            >
+              <SelectTrigger><SelectValue placeholder={formTranslations[language].select} /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="shorts">{formTranslations[language].shorts}</SelectItem>
+                <SelectItem value="partial">{formTranslations[language].partialCoverage}</SelectItem>
+                <SelectItem value="full">{formTranslations[language].fullCoverage}</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Q5: Time Outdoors */}
+          <div>
+            <Label>
+              {typeof formTranslations[language].questions.q5 === 'string' 
+                ? formTranslations[language].questions.q5 
+                : formTranslations[language].questions.q5.text}
+            </Label>
+            <Select
+              value={formData.q5}
+              onValueChange={(v) => setFormData({ ...formData, q5: v })}
+            >
+              <SelectTrigger><SelectValue placeholder={formTranslations[language].select} /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="more_30">{formTranslations[language].more30Min}</SelectItem>
+                <SelectItem value="less_30">{formTranslations[language].less30Min}</SelectItem>
+                <SelectItem value="negligible">{formTranslations[language].negligible}</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Q6: Sunscreen */}
+          <div>
+            <Label>{formTranslations[language].questions.q6}</Label>
+            <Select
+              value={formData.q6}
+              onValueChange={(v) => setFormData({ ...formData, q6: v })}
+            >
+              <SelectTrigger><SelectValue placeholder={formTranslations[language].select} /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="yes">{formTranslations[language].yes}</SelectItem>
+                <SelectItem value="no">{formTranslations[language].no}</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Q7: Pollution */}
+          <div>
+            <Label>{formTranslations[language].questions.q7}</Label>
+            <Select
+              value={formData.q7}
+              onValueChange={(v) => setFormData({ ...formData, q7: v })}
+            >
+              <SelectTrigger><SelectValue placeholder={formTranslations[language].select} /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="yes">{formTranslations[language].yes}</SelectItem>
+                <SelectItem value="no">{formTranslations[language].no}</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Q8: Animal Foods */}
+          <div>
+            <Label>
+              {typeof formTranslations[language].questions.q8 === 'string' 
+                ? formTranslations[language].questions.q8 
+                : formTranslations[language].questions.q8.text}
+            </Label>
+            <Select
+              value={formData.q8}
+              onValueChange={(v) => setFormData({ ...formData, q8: v })}
+            >
+              <SelectTrigger><SelectValue placeholder={formTranslations[language].select} /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="no_intake">{formTranslations[language].noIntake}</SelectItem>
+                <SelectItem value="occasional">{formTranslations[language].occasionalIntake}</SelectItem>
+                <SelectItem value="regular">{formTranslations[language].regularIntake}</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Q9-Q12: Yes/No Questions */}
+          <div>
+            <Label>{formTranslations[language].questions.q9}</Label>
+            <Select
+              value={formData.q9}
+              onValueChange={(v) => setFormData({ ...formData, q9: v })}
+            >
+              <SelectTrigger><SelectValue placeholder={formTranslations[language].select} /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="yes">{formTranslations[language].yes}</SelectItem>
+                <SelectItem value="no">{formTranslations[language].no}</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div>
+            <Label>{formTranslations[language].questions.q10}</Label>
+            <Select
+              value={formData.q10}
+              onValueChange={(v) => setFormData({ ...formData, q10: v })}
+            >
+              <SelectTrigger><SelectValue placeholder={formTranslations[language].select} /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="yes">{formTranslations[language].yes}</SelectItem>
+                <SelectItem value="no">{formTranslations[language].no}</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div>
+            <Label>{formTranslations[language].questions.q11}</Label>
+            <Select
+              value={formData.q11}
+              onValueChange={(v) => setFormData({ ...formData, q11: v })}
+            >
+              <SelectTrigger><SelectValue placeholder={formTranslations[language].select} /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="yes">{formTranslations[language].yes}</SelectItem>
+                <SelectItem value="no">{formTranslations[language].no}</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div>
+            <Label>{formTranslations[language].questions.q12}</Label>
+            <Select
+              value={formData.q12}
+              onValueChange={(v) => setFormData({ ...formData, q12: v })}
+            >
+              <SelectTrigger><SelectValue placeholder={formTranslations[language].select} /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="yes">{formTranslations[language].yes}</SelectItem>
+                <SelectItem value="no">{formTranslations[language].no}</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Q13-Q17: No/Sometimes/Often Questions */}
+          <div>
+            <Label>
+              {typeof formTranslations[language].questions.q13 === 'string' 
+                ? formTranslations[language].questions.q13 
+                : formTranslations[language].questions.q13.text}
+            </Label>
+            <Select
+              value={formData.q13}
+              onValueChange={(v) => setFormData({ ...formData, q13: v })}
+            >
+              <SelectTrigger><SelectValue placeholder={formTranslations[language].select} /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="no">{formTranslations[language].no}</SelectItem>
+                <SelectItem value="sometimes">{formTranslations[language].sometimes}</SelectItem>
+                <SelectItem value="often">{formTranslations[language].often}</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div>
+            <Label>
+              {typeof formTranslations[language].questions.q14 === 'string' 
+                ? formTranslations[language].questions.q14 
+                : formTranslations[language].questions.q14.text}
+            </Label>
+            <Select
+              value={formData.q14}
+              onValueChange={(v) => setFormData({ ...formData, q14: v })}
+            >
+              <SelectTrigger><SelectValue placeholder={formTranslations[language].select} /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="no">{formTranslations[language].no}</SelectItem>
+                <SelectItem value="sometimes">{formTranslations[language].sometimes}</SelectItem>
+                <SelectItem value="often">{formTranslations[language].often}</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div>
+            <Label>
+              {typeof formTranslations[language].questions.q15 === 'string' 
+                ? formTranslations[language].questions.q15 
+                : formTranslations[language].questions.q15.text}
+            </Label>
+            <Select
+              value={formData.q15}
+              onValueChange={(v) => setFormData({ ...formData, q15: v })}
+            >
+              <SelectTrigger><SelectValue placeholder={formTranslations[language].select} /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="no">{formTranslations[language].no}</SelectItem>
+                <SelectItem value="sometimes">{formTranslations[language].sometimes}</SelectItem>
+                <SelectItem value="often">{formTranslations[language].often}</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div>
+            <Label>
+              {typeof formTranslations[language].questions.q16 === 'string' 
+                ? formTranslations[language].questions.q16 
+                : formTranslations[language].questions.q16.text}
+            </Label>
+            <Select
+              value={formData.q16}
+              onValueChange={(v) => setFormData({ ...formData, q16: v })}
+            >
+              <SelectTrigger><SelectValue placeholder={formTranslations[language].select} /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="no">{formTranslations[language].no}</SelectItem>
+                <SelectItem value="sometimes">{formTranslations[language].sometimes}</SelectItem>
+                <SelectItem value="often">{formTranslations[language].often}</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div>
+            <Label>
+              {typeof formTranslations[language].questions.q17 === 'string' 
+                ? formTranslations[language].questions.q17 
+                : formTranslations[language].questions.q17.text}
+            </Label>
+            <Select
+              value={formData.q17}
+              onValueChange={(v) => setFormData({ ...formData, q17: v })}
+            >
+              <SelectTrigger><SelectValue placeholder={formTranslations[language].select} /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="no">{formTranslations[language].no}</SelectItem>
+                <SelectItem value="sometimes">{formTranslations[language].sometimes}</SelectItem>
+                <SelectItem value="often">{formTranslations[language].often}</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Q18: Vitamin D Supplementation */}
+          <div>
+            <Label>{formTranslations[language].questions.q18}</Label>
+            <Select
+              value={formData.q18}
+              onValueChange={(v) => setFormData({ ...formData, q18: v })}
+            >
+              <SelectTrigger><SelectValue placeholder={formTranslations[language].select} /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="yes">{formTranslations[language].yes}</SelectItem>
+                <SelectItem value="no">{formTranslations[language].no}</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
         </div>
       </AccordionContent>

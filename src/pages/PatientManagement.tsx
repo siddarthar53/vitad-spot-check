@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,7 +10,18 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { ArrowLeft, Plus, Users, Calculator, FileText, Languages } from "lucide-react";
-import { fetchCampPatients, generateSummaryMessage } from "@/utils/campUtils";
+import { fetchCampPatients } from "@/utils/campUtils";
+import {
+  calculateBMI,
+  getRiskLevel,
+  getRiskBadgeVariant,
+  validatePatientFormData,
+  calculateSectionBScore,
+  generateDoctorWhatsAppMessage,
+  sendWhatsAppMessage,
+  formatPhoneNumber,
+} from "@/utils/campUtils";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import {
   Accordion,
   AccordionItem,
@@ -37,11 +48,9 @@ interface Patient {
   hypothyroidism: boolean;
   hyperthyroidism: boolean;
   other_comorbidity: string | null;
-  section_a_score: number;
-  section_b_score: number;
   total_score: number;
   risk_level: string | null;
-  questionnaire_responses: any;
+  questionnaire_responses: Record<string, string> | string | null;
 }
 
 const PatientManagement = () => {
@@ -84,52 +93,53 @@ const PatientManagement = () => {
   q18: "",
 });
 
+const [showSummaryDialog, setShowSummaryDialog] = useState(false);
+const [summaryForm, setSummaryForm] = useState({
+  total_patients: 0,
+  adequate_patients: 0,
+  inadequate_patients: 0,
+  rx_generated: "",
+  units_sold: "",
+  deksel_nano_syrup: "",
+  deksel_2k_syrup: "",
+  deksel_neo_syrup: "",
+});
 
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  useEffect(() => {
-    if (campId) {
-      fetchPatients();
-    }
-  }, [campId]);
-
-const fetchPatients = async () => {
+  const fetchPatients = useCallback(async () => {
+  if (!campId) return;
+  
   try {
-    const data = await fetchCampPatients(campId!);
-    setPatients(data);
-  } catch (error: any) {
+    const data = await fetchCampPatients(campId);
+    setPatients(data as Patient[]);
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : "Failed to fetch patients";
     toast({
       title: "Error fetching patients",
-      description: error.message,
+      description: errorMessage,
       variant: "destructive",
     });
   } finally {
     setLoading(false);
   }
-};
+}, [campId, toast]);
+
+  useEffect(() => {
+    if (campId) {
+      fetchPatients();
+    }
+  }, [campId, fetchPatients]);
 
 
-  const calculateBMI = (weightKg: number, heightM: number): number => {
-    return Math.round((weightKg / (heightM * heightM)) * 100) / 100;
-  };
-
-  const calculateSectionAScore = (age: number, bmi: number): number => {
-    // This function is no longer used as scoring is now done in Section B
-    return 0;
-  };
 
 
-  const getRiskLevel = (totalScore: number): string => {
-    if (totalScore < 5) return "Sufficient";
-    if (totalScore <= 7.75) return "Insufficient";
-    return "Deficient";
-  };
-
-const handleAddPatient = async (e: React.FormEvent) => {
+const handleAddPatient = useCallback(async (e: React.FormEvent) => {
   e.preventDefault();
 
-  if (!formData.initials || !formData.age || !formData.gender || !formData.weight_kg) {
+  // Use imported validation function
+  if (!validatePatientFormData(formData)) {
     toast({
       title: "Missing required fields",
       description: "Please fill in all required fields.",
@@ -138,35 +148,52 @@ const handleAddPatient = async (e: React.FormEvent) => {
     return;
   }
 
+  setLoading(true);
+
   try {
     const nextPatientNumber = patients.length + 1;
 
-    // ✅ Convert inputs safely
+    // Safe conversions
     const heightFeet = Number(formData.height_feet) || 0;
     const heightInches = Number(formData.height_inches) || 0;
     const totalInches = heightFeet * 12 + heightInches;
     const heightMeters = totalInches > 0 ? totalInches * 0.0254 : 0;
-
     const weightKg = Number(formData.weight_kg) || 0;
     const age = Number(formData.age) || 0;
 
-    // ✅ Safely calculate BMI (prevent NaN)
-    const bmi = heightMeters > 0 ? calculateBMI(weightKg, heightMeters) : 0;
-
-    // ✅ Calculate section scores
-    const sectionAScore = 0; // Not used anymore
-    const sectionBScore = Number(calculateSectionBScore(formData, age, bmi)) || 0;
-    const totalScore = sectionAScore + sectionBScore;
+    // Use imported functions
+    const bmi = calculateBMI(weightKg, heightMeters);
+    const totalScore = calculateSectionBScore(formData, age, bmi);
     const riskLevel = getRiskLevel(totalScore);
 
-    // ✅ Ensure numeric fields are inserted as numbers
+    const questionnaireResponses = {
+  q1: formData.q1,
+  q2: formData.q2,
+  q3: formData.q3,
+  q4: formData.q4,
+  q5: formData.q5,
+  q6: formData.q6,
+  q7: formData.q7,
+  q8: formData.q8,
+  q9: formData.q9,
+  q10: formData.q10,
+  q11: formData.q11,
+  q12: formData.q12,
+  q13: formData.q13,
+  q14: formData.q14,
+  q15: formData.q15,
+  q16: formData.q16,
+  q17: formData.q17,
+  q18: formData.q18,
+};
+
     const { data, error } = await supabase
       .from("patients")
       .insert({
         camp_id: campId,
         patient_number: nextPatientNumber,
         initials: formData.initials.trim(),
-        age: age,
+        age,
         gender: formData.gender,
         height_feet: heightFeet || null,
         height_inches: heightInches || null,
@@ -178,28 +205,48 @@ const handleAddPatient = async (e: React.FormEvent) => {
         hypothyroidism: formData.hypothyroidism,
         hyperthyroidism: formData.hyperthyroidism,
         other_comorbidity: formData.other_comorbidity || null,
-        section_a_score: sectionAScore,
-        section_b_score: sectionBScore,
         total_score: totalScore,
         risk_level: riskLevel,
+        questionnaire_responses: questionnaireResponses,
       })
       .select()
       .single();
 
     if (error) throw error;
 
-    // ✅ Update total patients in camp
-    await supabase
+    // Update total patients in camp
+    const { error: updateError } = await supabase
       .from("camps")
       .update({ total_patients: nextPatientNumber })
       .eq("id", campId);
+
+    if (updateError) throw updateError;
+
+    // Check if camp should be activated
+    const { data: campData, error: campFetchError } = await supabase
+      .from("camps")
+      .select("status")
+      .eq("id", campId)
+      .single();
+
+    if (!campFetchError && campData?.status === "scheduled") {
+      await supabase
+        .from("camps")
+        .update({ status: "active" })
+        .eq("id", campId);
+
+      toast({
+        title: "Camp Activated",
+        description: "Camp status changed from scheduled to active.",
+      });
+    }
 
     toast({
       title: "Patient added successfully",
       description: `Patient #${nextPatientNumber} has been registered.`,
     });
 
-    // ✅ Reset form & refresh
+    // Reset form
     setFormData({
       initials: "",
       age: "",
@@ -212,138 +259,65 @@ const handleAddPatient = async (e: React.FormEvent) => {
       hypothyroidism: false,
       hyperthyroidism: false,
       other_comorbidity: "",
-      q1: "",
-      q2: "",
-      q3: "",
-      q4: "",
-      q5: "",
-      q6: "",
-      q7: "",
-      q8: "",
-      q9: "",
-      q10: "",
-      q11: "",
-      q12: "",
-      q13: "",
-      q14: "",
-      q15: "",
-      q16: "",
-      q17: "",
-      q18: "",
+      q1: "", q2: "", q3: "", q4: "", q5: "", q6: "", q7: "", q8: "",
+      q9: "", q10: "", q11: "", q12: "", q13: "", q14: "", q15: "",
+      q16: "", q17: "", q18: "",
     });
 
     setShowAddForm(false);
-    fetchPatients();
-  } catch (error: any) {
+    await fetchPatients();
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : "Failed to add patient";
     toast({
       title: "Error adding patient",
-      description: error.message,
+      description: errorMessage,
       variant: "destructive",
     });
+  } finally {
+    setLoading(false);
   }
-};
-
-
-  const getRiskBadgeVariant = (riskLevel: string | null) => {
-    switch (riskLevel) {
-      case "Sufficient":
-        return "secondary";
-      case "Insufficient":
-        return "default";
-      case "Deficient":
-        return "destructive";
-      default:
-        return "outline";
-    }
-  };
-
-const calculateSectionBScore = (form: typeof formData, age: number, bmi: number): number => {
-  let score = 0;
-
-  // Q1: Age > 50?
-  if (form.q1 === "yes") score += 0.5;
-
-  // Q2: BMI ≥ 30?
-  if (form.q2 === "yes") score += 1;
-
-  // Q3: Skin tone
-  if (form.q3 === "dark") score += 0;
-  else if (form.q3 === "wheatish") score += 0.25;
-  else if (form.q3 === "fair") score += 0.75;
-  else if (form.q3 === "very_fair") score += 1;
-
-  // Q4: Clothing style
-  if (form.q4 === "shorts") score += 0;
-  else if (form.q4 === "partial") score += 1;
-  else if (form.q4 === "full") score += 3;
-
-  // Q5: Time outdoors
-  if (form.q5 === "more_30") score += 0;
-  else if (form.q5 === "less_30") score += 2;
-  else if (form.q5 === "negligible") score += 3;
-
-  // Q6: Sunscreen (Yes/No)
-  if (form.q6 === "yes") score += 1;
-
-  // Q7: Pollution (Yes/No)
-  if (form.q7 === "yes") score += 1;
-
-  // Q8: Animal foods
-  if (form.q8 === "no_intake") score += 1;
-  else if (form.q8 === "occasional") score += 0.5;
-  else if (form.q8 === "regular") score += 0;
-
-  // Q9-Q12: Yes/No (each Yes = +1)
-  if (form.q9 === "yes") score += 1;
-  if (form.q10 === "yes") score += 1;
-  if (form.q11 === "yes") score += 1;
-  if (form.q12 === "yes") score += 1;
-
-  // Q13-Q17: No/Sometimes/Often (0, 0.25, 0.5)
-  const symptomQuestions = ["q13", "q14", "q15", "q16", "q17"];
-  symptomQuestions.forEach((q) => {
-    const key = q as keyof typeof form;
-    if (form[key] === "sometimes") score += 0.25;
-    else if (form[key] === "often") score += 0.5;
-  });
-
-  // Q18: Vitamin D supplementation (Yes = -5)
-  if (form.q18 === "yes") score -= 5;
-
-  return score;
-};
-
+}, [formData, patients, campId, toast, fetchPatients]);
 
 // ✅ Updated handleCompleteCamp to generate inline summary
-const handleCompleteCamp = async () => {
+const handleCompleteCamp = useCallback(() => {
+  const total = patients.length;
+  const adequate = patients.filter((p) => p.risk_level === "Adequate").length;
+  const inadequate = patients.filter((p) => p.risk_level === "Inadequate").length;
+
+  setSummaryForm({
+    total_patients: total,
+    adequate_patients: adequate,
+    inadequate_patients: inadequate,
+    rx_generated: "",
+    units_sold: "",
+    deksel_nano_syrup: "",
+    deksel_2k_syrup: "",
+    deksel_neo_syrup: "",
+  });
+
+  setShowSummaryDialog(true);
+}, [patients]); // ← Dependencies: this function uses `patients`
+
+const handleDone = useCallback(async () => {
   try {
-    const { error } = await supabase
+    const { error: updateError } = await supabase
       .from("camps")
-      .update({ status: "completed" })
+      .update({
+        total_patients: summaryForm.total_patients,
+        adequate_patients: summaryForm.adequate_patients,
+        inadequate_patients: summaryForm.inadequate_patients,
+        rx_generated: Number(summaryForm.rx_generated) || null,
+        units_sold: Number(summaryForm.units_sold) || null,
+        deksel_nano_syrup: Number(summaryForm.deksel_nano_syrup) || null,
+        deksel_2k_syrup: Number(summaryForm.deksel_2k_syrup) || null,
+        deksel_neo_syrup: Number(summaryForm.deksel_neo_syrup) || null,
+        status: "completed",
+      })
       .eq("id", campId);
 
-    if (error) throw error;
+    if (updateError) throw updateError;
 
-    const updatedPatients = await fetchCampPatients(campId!);
-    setPatients(updatedPatients);
-    setShowSummary(true);
-
-    toast({
-      title: "Camp Completed",
-      description: "Camp marked as completed and summary generated.",
-    });
-  } catch (err: any) {
-    toast({
-      title: "Error completing camp",
-      description: err.message,
-      variant: "destructive",
-    });
-  }
-};
-
-const sendSummaryToDoctor = async () => {
-  try {
-    // ✅ Fetch the doctor details, including whatsapp_number
+    // Fetch doctor info
     const { data: campData, error: campError } = await supabase
       .from("camps")
       .select(`
@@ -363,78 +337,114 @@ const sendSummaryToDoctor = async () => {
       throw new Error("Doctor details not found.");
 
     const doctor = campData.doctors;
-
-    // ✅ Use WhatsApp number if available, fallback to regular phone
     const contactNumber = doctor.whatsapp_number || doctor.phone;
     const formattedPhone = contactNumber.startsWith("+")
       ? contactNumber
       : `+91${contactNumber}`;
 
-    // ✅ Calculate patient summary
-    const patientsData =
-      patients.length > 0 ? patients : await fetchCampPatients(campId!);
-
-    const total = patientsData.length;
-    const low = patientsData.filter((p) => p.risk_level === "Low Risk").length;
-    const moderate = patientsData.filter(
-      (p) => p.risk_level === "Moderate Risk"
-    ).length;
-    const high = patientsData.filter((p) => p.risk_level === "High Risk").length;
-
-    // ✅ WhatsApp message text (with risk score legend)
     const message = `
-Dear Dr. ${doctor.name},
+Dear ${doctor.name},
 
-Please find below the summary of the Vitamin D Deficiency Risk Assessment Camp conducted at your clinic (${doctor.clinic_name}, ${doctor.city}) on ${new Date(
-      campData.camp_date
-    ).toLocaleDateString()}.
+Please find Vitamin D Deficiency Risk Assessment Camp Summary.
 
-Total Patients Screened: ${total}
-Low Risk: ${low}
-Moderate Risk: ${moderate}
-High Risk: ${high}
+No. of patients screened: ${summaryForm.total_patients}
+No. of Patients with adequate Vitamin D levels: ${summaryForm.adequate_patients}
+No. of Patients with inadequate Vitamin D levels: ${summaryForm.inadequate_patients}
 
-------------------------------
-RISK LEVEL GUIDE:
-Score 0–3   → Low Risk
-Score 4–6   → Moderate Risk
-Score ≥7    → High Risk
-------------------------------
+In case of any concerns/complaints, you can reach out on 9000000000.
 
-We thank you for your kind support and continuous patronage.
-For any concerns, please contact 9000000000.
+We thank you for your continuous patronage.
+`;
 
-— Vitamin D Awareness Team
-    `;
-
-    // ✅ Open WhatsApp
-    const waUrl = `https://wa.me/${formattedPhone}?text=${encodeURIComponent(
-      message
-    )}`;
+    const waUrl = `https://wa.me/${formattedPhone}?text=${encodeURIComponent(message)}`;
     window.open(waUrl, "_blank");
+
+    toast({
+      title: "Camp Completed",
+      description: "Summary and sales data saved, message sent to doctor.",
+    });
+
+    setShowSummaryDialog(false);
+    navigate("/");
+  } catch (err: unknown) {
+    const errorMessage = err instanceof Error ? err.message : "Failed to complete camp";
+    toast({
+      title: "Error completing camp",
+      description: errorMessage,
+      variant: "destructive",
+    });
+  }
+}, [summaryForm, campId, toast, navigate]); // ← Dependencies
+
+
+
+
+const sendSummaryToDoctor = useCallback(async () => {
+  if (!campId) return;
+
+  try {
+    const { data: campData, error: campError } = await supabase
+      .from("camps")
+      .select(`
+        camp_date,
+        doctors:doctor_id (
+          name,
+          phone,
+          whatsapp_number,
+          clinic_name,
+          city
+        )
+      `)
+      .eq("id", campId)
+      .single();
+
+    if (campError || !campData?.doctors) {
+      throw new Error("Doctor details not found");
+    }
+
+    const doctor = campData.doctors;
+    const patientsData = patients.length > 0 ? patients : await fetchCampPatients(campId);
+    
+    const total = patientsData.length;
+    const adequate = patientsData.filter((p) => p.risk_level === "Adequate").length;
+    const inadequate = patientsData.filter((p) => p.risk_level === "Inadequate").length;
+
+    // Use imported utility function
+    const message = generateDoctorWhatsAppMessage(
+      doctor.name,
+      doctor.clinic_name,
+      doctor.city,
+      campData.camp_date,
+      total,
+      adequate,
+      inadequate
+    );
+
+    const phone = doctor.whatsapp_number || doctor.phone;
+    sendWhatsAppMessage(phone, message);
 
     toast({
       title: "Summary ready to send",
       description: `Opening WhatsApp to send summary to Dr. ${doctor.name}.`,
     });
 
-    // ✅ Redirect to Camp Details after short delay
     setTimeout(() => navigate(`/camp/${campId}`), 2000);
-  } catch (err: any) {
+  } catch (err: unknown) {
+    const errorMessage = err instanceof Error ? err.message : "Failed to send summary";
     toast({
       title: "Error sending summary",
-      description: err.message,
+      description: errorMessage,
       variant: "destructive",
     });
   }
-};
+}, [campId, patients, toast, navigate]);
 
 
 
 
 
-const printWithRawBT = (patient: Patient) => {
-  // 🧩 Build comorbidity text vertically (one per line)
+
+const printWithRawBT = useCallback((patient: Patient) => {
   const comorbidities: string[] = [];
 
   if (patient.diabetes) comorbidities.push("• Diabetes");
@@ -447,20 +457,16 @@ const printWithRawBT = (patient: Patient) => {
     ? comorbidities.join("\n")
     : "• None";
 
-  // ✅ Safe defaults for fields
   const feet = patient.height_feet ?? 0;
   const inches = patient.height_inches ?? 0;
   const weight = patient.weight_kg ?? 0;
   const bmi = patient.bmi ? patient.bmi.toFixed(1) : "N/A";
-  const sectionA = patient.section_a_score ?? 0;
-  const sectionB = patient.section_b_score ?? 0;
   const total = patient.total_score ?? 0;
   const risk = patient.risk_level ?? "N/A";
 
-  // 🧾 Printable content with risk guide
   const printable = `
 --------------------------
- Vitamin D Risk Assessment
+ Vitamin D Assessment
 --------------------------
 Patient: ${patient.initials}
 Age: ${patient.age}   Gender: ${patient.gender}
@@ -471,22 +477,18 @@ BMI: ${bmi}
 Comorbidities:
 ${comorbidityText}
 
-Section A Score: ${sectionA}
-Section B Score: ${sectionB}
 Total Score: ${total}
-
 Risk Level: ${risk}
+
 --------------------------
-RISK LEVEL GUIDE:
-0–3   → Low Risk
-4–6   → Moderate Risk
-7+    → High Risk
+ADEQUACY GUIDE:
+< 5   → Adequate
+≥ 5   → Inadequate
 --------------------------
 This is a screening result.
 Consult your doctor for testing.
 `;
 
-  // 📱 Detect device platform
   const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
   const isAndroid = /Android/.test(navigator.userAgent);
 
@@ -498,10 +500,7 @@ Consult your doctor for testing.
   } else {
     alert("Printing is supported only on Android (RawBT) or iOS (EMLabel).");
   }
-};
-
-  
-
+}, []); // ← No dependencies needed (patient comes as parameter)
 
   if (loading) {
     return (
@@ -520,11 +519,11 @@ Consult your doctor for testing.
         <div className="mb-6">
           <Button
             variant="ghost"
-            onClick={() => navigate(`/camp/${campId}`)}
+            onClick={() => navigate(`/`)}
             className="mb-4"
           >
             <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Camp Details
+            Back to Dashboard
           </Button>
           <div className="flex justify-between items-start">
             <div>
@@ -553,7 +552,7 @@ Consult your doctor for testing.
                     Add New Patient
                   </CardTitle>
                   <CardDescription>
-                    Patient #{patients.length + 1}
+                    Patient {patients.length + 1}
                   </CardDescription>
                 </div>
                 <div className="flex items-center space-x-2">
@@ -1071,7 +1070,7 @@ Consult your doctor for testing.
                 <CardHeader className="pb-3">
                   <div className="flex justify-between items-start">
                     <div>
-                      <CardTitle className="text-lg">Patient #{patient.patient_number}</CardTitle>
+                      <CardTitle className="text-lg">Patient {patient.patient_number}</CardTitle>
                       <CardDescription>{patient.initials}</CardDescription>
                     </div>
                     <Badge variant={getRiskBadgeVariant(patient.risk_level)}>
@@ -1098,8 +1097,8 @@ Consult your doctor for testing.
                       <span className="ml-2 font-bold text-primary">{patient.total_score}</span>
                     </div>
                   </div>
-                  
-                  {(patient.diabetes || patient.hypertension || patient.hypothyroidism || patient.hyperthyroidism) && (
+
+                  {(patient.diabetes || patient.hypertension || patient.hypothyroidism || patient.hyperthyroidism || patient.other_comorbidity) && (
                     <div className="mt-3 pt-3 border-t">
                       <p className="text-xs text-muted-foreground mb-1">Comorbidities:</p>
                       <div className="flex flex-wrap gap-1">
@@ -1107,6 +1106,7 @@ Consult your doctor for testing.
                         {patient.hypertension && <Badge variant="outline" className="text-xs">Hypertension</Badge>}
                         {patient.hypothyroidism && <Badge variant="outline" className="text-xs">Hypothyroidism</Badge>}
                         {patient.hyperthyroidism && <Badge variant="outline" className="text-xs">Hyperthyroidism</Badge>}
+                        {patient.other_comorbidity && <Badge variant="outline" className="text-xs">{patient.other_comorbidity}</Badge>}
                       </div>
                     </div>
                   )}
@@ -1129,25 +1129,6 @@ Consult your doctor for testing.
           </div>
         )}
 
-        {patients.length > 0 && patients.length < 20 && (
-          <Card className="mt-6 border-medical-warning/50">
-            <CardContent className="p-4">
-              <div className="flex items-center space-x-3">
-                <div className="flex-shrink-0">
-                  <Users className="h-5 w-5 text-medical-warning" />
-                </div>
-                <div>
-                  <p className="font-medium text-foreground">
-                    Minimum 20 patients required
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    You have {patients.length} patients. Add {20 - patients.length} more to complete the camp.
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
 
                 {/* ✅ Show Complete Camp button when minimum 20 patients are reached */}
         {patients.length >0 && (
@@ -1169,23 +1150,17 @@ Consult your doctor for testing.
       <CardTitle>Camp Summary</CardTitle>
     </CardHeader>
     <CardContent>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-center">
         <div>
-          <p className="text-sm text-muted-foreground">Low Risk</p>
+          <p className="text-sm text-muted-foreground">Adequate</p>
           <p className="text-xl font-bold text-green-600">
-            {patients.filter(p => p.risk_level === "Low Risk").length}
+            {patients.filter(p => p.risk_level === "Adequate").length}
           </p>
         </div>
         <div>
-          <p className="text-sm text-muted-foreground">Moderate Risk</p>
-          <p className="text-xl font-bold text-yellow-600">
-            {patients.filter(p => p.risk_level === "Moderate Risk").length}
-          </p>
-        </div>
-        <div>
-          <p className="text-sm text-muted-foreground">High Risk</p>
+          <p className="text-sm text-muted-foreground">Inadequate</p>
           <p className="text-xl font-bold text-red-600">
-            {patients.filter(p => p.risk_level === "High Risk").length}
+            {patients.filter(p => p.risk_level === "Inadequate").length}
           </p>
         </div>
       </div>
@@ -1201,9 +1176,111 @@ Consult your doctor for testing.
     </CardContent>
   </Card>
 )}
-
-
       </div>
+      <Dialog open={showSummaryDialog} onOpenChange={setShowSummaryDialog}>
+  <DialogContent className="sm:max-w-[600px]">
+    <DialogHeader>
+      <DialogTitle className="text-xl font-bold text-center">
+        Camp Summary
+      </DialogTitle>
+    </DialogHeader>
+
+    <div className="space-y-4 mt-2">
+      {/* --- Auto-filled summary --- */}
+      <div>
+        <Label>No. of Patients Screened</Label>
+        <Input value={summaryForm.total_patients} readOnly />
+      </div>
+
+      <div>
+        <Label>No. of Patients with Adequate Vitamin D Levels</Label>
+        <Input value={summaryForm.adequate_patients} readOnly />
+      </div>
+
+      <div>
+        <Label>No. of Patients with Inadequate Vitamin D Levels</Label>
+        <Input value={summaryForm.inadequate_patients} readOnly />
+      </div>
+
+      {/* --- Sales data (user input) --- */}
+      <div className="pt-3 border-t">
+        <Label>No. of Rx Generated</Label>
+        <Input
+          type="number"
+          value={summaryForm.rx_generated}
+          onChange={(e) =>
+            setSummaryForm({ ...summaryForm, rx_generated: e.target.value })
+          }
+        />
+      </div>
+
+      <div>
+        <Label>No. of Units Sold</Label>
+        <Input
+          type="number"
+          value={summaryForm.units_sold}
+          onChange={(e) =>
+            setSummaryForm({ ...summaryForm, units_sold: e.target.value })
+          }
+        />
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3">
+        <div>
+          <Label>Deksel Nano Syrup</Label>
+          <Input
+            type="number"
+            value={summaryForm.deksel_nano_syrup}
+            onChange={(e) =>
+              setSummaryForm({
+                ...summaryForm,
+                deksel_nano_syrup: e.target.value,
+              })
+            }
+          />
+        </div>
+
+        <div>
+          <Label>Deksel 2K Syrup</Label>
+          <Input
+            type="number"
+            value={summaryForm.deksel_2k_syrup}
+            onChange={(e) =>
+              setSummaryForm({
+                ...summaryForm,
+                deksel_2k_syrup: e.target.value,
+              })
+            }
+          />
+        </div>
+
+        <div>
+          <Label>Deksel Neo Syrup</Label>
+          <Input
+            type="number"
+            value={summaryForm.deksel_neo_syrup}
+            onChange={(e) =>
+              setSummaryForm({
+                ...summaryForm,
+                deksel_neo_syrup: e.target.value,
+              })
+            }
+          />
+        </div>
+      </div>
+    </div>
+
+    <DialogFooter className="mt-6 flex justify-center">
+      <Button
+        onClick={handleDone}
+        className="bg-green-600 hover:bg-green-700"
+      >
+        Done
+      </Button>
+    </DialogFooter>
+  </DialogContent>
+</Dialog>
+
     </div>
   );
 };

@@ -16,35 +16,56 @@ export type Database = {
     Tables: {
       camps: {
         Row: {
+          adequate_patients: number | null
           camp_date: string
           consent_form_url: string | null
           created_at: string
+          deksel_2k_syrup: number | null
+          deksel_nano_syrup: number | null
+          deksel_neo_syrup: number | null
           doctor_id: string
           id: string
+          inadequate_patients: number | null
+          rx_generated: number | null
           status: string
           total_patients: number | null
+          units_sold: number | null
           updated_at: string
           user_id: string
         }
         Insert: {
+          adequate_patients?: number | null
           camp_date: string
           consent_form_url?: string | null
           created_at?: string
+          deksel_2k_syrup?: number | null
+          deksel_nano_syrup?: number | null
+          deksel_neo_syrup?: number | null
           doctor_id: string
           id?: string
+          inadequate_patients?: number | null
+          rx_generated?: number | null
           status?: string
           total_patients?: number | null
+          units_sold?: number | null
           updated_at?: string
           user_id: string
         }
         Update: {
+          adequate_patients?: number | null
           camp_date?: string
           consent_form_url?: string | null
           created_at?: string
+          deksel_2k_syrup?: number | null
+          deksel_nano_syrup?: number | null
+          deksel_neo_syrup?: number | null
           doctor_id?: string
           id?: string
+          inadequate_patients?: number | null
+          rx_generated?: number | null
           status?: string
           total_patients?: number | null
+          units_sold?: number | null
           updated_at?: string
           user_id?: string
         }

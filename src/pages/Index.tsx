@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import Dashboard from "./Dashboard";
@@ -8,34 +8,32 @@ const Index = () => {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const initAuth = useCallback(async () => {
+    try {
+      const { data, error } = await supabase.auth.getSession();
+      if (error) throw error;
+      setSession(data.session);
+    } catch (err) {
+      console.error("Error fetching session:", err);
+      setSession(null);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
-    let isMounted = true;
-
-    const initAuth = async () => {
-      try {
-        const { data, error } = await supabase.auth.getSession();
-        if (error) throw error;
-        if (isMounted) setSession(data.session);
-      } catch (err) {
-        console.error("Error fetching session:", err);
-      } finally {
-        if (isMounted) setLoading(false);
-      }
-    };
-
     initAuth();
 
-    // Listen for auth changes
-    const { data: subscription } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (isMounted) setSession(session);
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
     });
 
-    // Cleanup listener on unmount
     return () => {
-      isMounted = false;
-      subscription.subscription?.unsubscribe?.();
+      subscription.unsubscribe();
     };
-  }, []);
+  }, [initAuth]);
 
   if (loading) {
     return (

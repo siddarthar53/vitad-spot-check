@@ -1,174 +1,125 @@
-import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
+import { useEffect, useState, useCallback } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Activity, Stethoscope } from "lucide-react";
+import { Activity } from "lucide-react";
+
+const EDGE_FUNCTION_URL = "https://jjtvugsixtauuwyyzkoc.supabase.co/functions/v1/imacx-login";
 
 const Auth = () => {
-  const [isLoading, setIsLoading] = useState(false);
-  const [isSignUp, setIsSignUp] = useState(false);
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [name, setName] = useState("");
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { toast } = useToast();
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
+  // Monitor session state
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session) {
-        navigate("/");
+        navigate("/", { replace: true });
       }
     });
 
     return () => subscription.unsubscribe();
   }, [navigate]);
 
-  const handleAuth = async (e: React.FormEvent) => {
-  e.preventDefault();
-  setIsLoading(true);
+  const handleIMACXLogin = useCallback(async (imacxId: string) => {
+    setIsLoading(true);
+    setError(null);
 
-  try {
-    if (isSignUp) {
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          emailRedirectTo: `${window.location.origin}/`,
-          data: { name },
-        },
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+
+      const response = await fetch(EDGE_FUNCTION_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ imacx_id: imacxId }),
+        signal: controller.signal,
       });
 
-      if (error) throw error;
+      clearTimeout(timeoutId);
 
-      // 👇 Insert into your custom users table *after signup*
-      if (data?.user) {
-        const { error: insertError } = await supabase.from("users").insert([
-          {
-            id: data.user.id,   // match auth.users UUID
-            email,
-            role: "BE",         // default role
-            name,               // store full name
-          },
-        ]);
-
-        if (insertError) {
-          console.error("Error inserting into users table:", insertError);
-          throw insertError;
-        }
+      if (!response.ok) {
+        const result = await response.json();
+        throw new Error(result.error || "Authentication failed");
       }
 
-      toast({
-        title: "Account created successfully",
-        description: "Please check your email to verify your account.",
-      });
-    } else {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
+      const result = await response.json();
+
+      if (!result.session?.access_token) {
+        throw new Error("Invalid session response");
+      }
+
+      const { error: sessionError } = await supabase.auth.setSession({
+        access_token: result.session.access_token,
+        refresh_token: result.session.refresh_token || result.session.access_token,
       });
 
-      if (error) throw error;
+      if (sessionError) throw sessionError;
 
       toast({
-        title: "Welcome back!",
-        description: "You have been signed in successfully.",
+        title: "Authentication successful",
+        description: "Welcome back!",
       });
+
+      navigate("/", { replace: true });
+    } catch (err: unknown) {
+      const errorMessage =
+        err instanceof Error
+          ? err.name === "AbortError"
+            ? "Request timeout. Please try again."
+            : err.message
+          : "Authentication failed";
+
+      setError(errorMessage);
+      toast({
+        title: "Authentication Failed",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
     }
-  } catch (error: any) {
-    toast({
-      title: "Authentication failed",
-      description: error.message,
-      variant: "destructive",
-    });
-  } finally {
-    setIsLoading(false);
-  }
-};
+  }, [navigate, toast]);
 
+  useEffect(() => {
+    const imacxId = searchParams.get("imacx_id");
+
+    if (!imacxId) {
+      setError("Missing IMACX ID. Please access this app via IMACX.");
+      toast({
+        title: "Missing IMACX ID",
+        description: "Please access this app via IMACX.",
+        variant: "destructive",
+      });
+      setIsLoading(false);
+      return;
+    }
+
+    handleIMACXLogin(imacxId);
+  }, [searchParams, handleIMACXLogin, toast]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-secondary to-background flex items-center justify-center p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="space-y-4 text-center">
-          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-primary">
-            <Stethoscope className="h-6 w-6 text-primary-foreground" />
-          </div>
-          <div>
-            <CardTitle className="text-2xl font-bold tracking-tight">
-              VitaD Risk Assessment
-            </CardTitle>
-            <CardDescription>
-              {isSignUp ? "Create your account" : "Sign in to your account"}
-            </CardDescription>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleAuth} className="space-y-4">
-            {isSignUp && (
-              <div className="space-y-2">
-                <Label htmlFor="name">Full Name</Label>
-                <Input
-                  id="name"
-                  type="text"
-                  placeholder="Dr. John Doe"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  required={isSignUp}
-                />
-              </div>
-            )}
-            
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="john@medical.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="Enter your password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
-            </div>
-            
-            <Button
-              type="submit"
-              className="w-full"
-              disabled={isLoading}
-            >
-              {isLoading && <Activity className="mr-2 h-4 w-4 animate-spin" />}
-              {isSignUp ? "Create Account" : "Sign In"}
-            </Button>
-          </form>
-          
-          <div className="mt-4 text-center">
-            <Button
-              variant="ghost"
-              onClick={() => setIsSignUp(!isSignUp)}
-              className="text-sm"
-            >
-              {isSignUp
-                ? "Already have an account? Sign in"
-                : "Don't have an account? Sign up"}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-secondary to-background">
+      <div className="text-center space-y-3 max-w-md px-4">
+        {isLoading ? (
+          <>
+            <Activity className="h-8 w-8 animate-spin mx-auto text-primary" />
+            <p className="text-muted-foreground">Authenticating via IMACX...</p>
+          </>
+        ) : (
+          <>
+            <div className="text-destructive text-sm">{error}</div>
+            <p className="text-muted-foreground">
+              Unable to authenticate. Please contact admin.
+            </p>
+          </>
+        )}
+      </div>
     </div>
   );
 };

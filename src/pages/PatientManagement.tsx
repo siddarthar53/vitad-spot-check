@@ -73,8 +73,6 @@ const PatientManagement = () => {
   hyperthyroidism: false,
   other_comorbidity: "",
   // Section B answers (18 questions)
-  q1: "",
-  q2: "",
   q3: "",
   q4: "",
   q5: "",
@@ -167,8 +165,8 @@ const handleAddPatient = useCallback(async (e: React.FormEvent) => {
     const riskLevel = getRiskLevel(totalScore);
 
     const questionnaireResponses = {
-  q1: formData.q1,
-  q2: formData.q2,
+  q1: age>50?"yes":"no",
+  q2: bmi>=30?"yes":"no",
   q3: formData.q3,
   q4: formData.q4,
   q5: formData.q5,
@@ -259,7 +257,7 @@ const handleAddPatient = useCallback(async (e: React.FormEvent) => {
       hypothyroidism: false,
       hyperthyroidism: false,
       other_comorbidity: "",
-      q1: "", q2: "", q3: "", q4: "", q5: "", q6: "", q7: "", q8: "",
+      q3: "", q4: "", q5: "", q6: "", q7: "", q8: "",
       q9: "", q10: "", q11: "", q12: "", q13: "", q14: "", q15: "",
       q16: "", q17: "", q18: "",
     });
@@ -711,44 +709,6 @@ Consult your doctor for testing.
       <AccordionTrigger>{formTranslations[language].sectionB}</AccordionTrigger>
       <AccordionContent>
         <div className="mt-4 space-y-4">
-          {/* Q1: Age */}
-          <div>
-            <Label>
-              {typeof formTranslations[language].questions.q1 === 'string' 
-                ? formTranslations[language].questions.q1 
-                : formTranslations[language].questions.q1.text}
-            </Label>
-            <Select
-              value={formData.q1}
-              onValueChange={(v) => setFormData({ ...formData, q1: v })}
-            >
-              <SelectTrigger><SelectValue placeholder={formTranslations[language].select} /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="yes">{formTranslations[language].yes}</SelectItem>
-                <SelectItem value="no">{formTranslations[language].no}</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Q2: BMI */}
-          <div>
-            <Label>
-              {typeof formTranslations[language].questions.q2 === 'string' 
-                ? formTranslations[language].questions.q2 
-                : formTranslations[language].questions.q2.text}
-            </Label>
-            <Select
-              value={formData.q2}
-              onValueChange={(v) => setFormData({ ...formData, q2: v })}
-            >
-              <SelectTrigger><SelectValue placeholder={formTranslations[language].select} /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="yes">{formTranslations[language].yes}</SelectItem>
-                <SelectItem value="no">{formTranslations[language].no}</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
           {/* Q3: Skin Tone */}
           <div>
             <Label>

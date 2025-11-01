@@ -49,14 +49,6 @@ export const formTranslations = {
     regularIntake: "Regular intake (fish ≥1/week)",
     
     questions: {
-      q1: {
-        text: "Age: Are you above 50 years of age?",
-        options: ["Yes", "No"]
-      },
-      q2: {
-        text: "Body Type: Is your Body Mass Index (BMI) ≥ 30 kg/m² (Overweight/Obese)?",
-        options: ["Yes", "No"]
-      },
       q3: {
         text: "Skin Pigmentation: What is your skin tone?",
         options: ["Dark", "Wheatish", "Fair", "Very Fair"]
